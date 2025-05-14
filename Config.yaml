@@ -1,0 +1,57 @@
+
+net_name: Testing_64_64_64_64_5e5_30
+
+inputs:
+
+  files:
+  
+    klambda: "1p0"
+    signal_dir: "/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
+    signal_file: "combined_skim_ggFhh_chhh1p0_mc20a__Nominal.parquet"
+    signal_pre_klambda: "combined_skim_ggFhh_chhh"
+    signal_mid: "_"
+    signal_post_year: "__Nominal.parquet"
+
+    background_dir: "/storage/epp2/phubsg/bbbb_samples/bb_background_data/"
+    background_file: "combined_skim_data16__Nominal.parquet"
+    background_pre_year: "combined_skim_data"
+    background_post_year: "__Nominal.parquet"
+
+  variables:
+    - X_hh
+    - pt_h1
+    - pt_h2
+    - eta_h1
+    - eta_h2
+    - m_hh
+    - dEta_hh
+    - m_h1
+    - m_h2
+    - dPhi_hh
+    - X_wt_tag
+
+  selections:
+    signal:
+      - ["pass_resolved",""]
+      - ["ntag", "==4"]
+      # - ["njets", ">=4"]
+    background:
+      - ["pass_resolved",""]
+      - ["ntag", "==2"]
+      # - ["njets", "=4"]
+
+
+hyper_params:
+
+  network:
+    hidden_layer_structure:
+      - 64
+      - 64
+      - 64
+      - 64
+
+  training:
+    batch_size: 256
+    learning_rate: 5e-5
+    epochs: 30
+

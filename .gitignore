@@ -1,0 +1,9 @@
+/plots
+/samples
+/trained_networks
+/env
+/__pycache__
+
+
+test.pdf
+test.png
