@@ -30,31 +30,30 @@ def plot_hist(data_arr, bins, norm, colour, label, linewidth = 3):
              color = colour,
              alpha = 0.1)
 
+def batch_cuts(batch):
 
-def KL_Divergence(hist_arrs, target):
+    cutflow_nums = [batch.num_rows]
 
-    hist_target = hist_arrs[target]/np.sum(hist_arrs[target])
-    hist_not_target = hist_arrs[1-target]/np.sum(hist_arrs[1-target])
+    pass_arr = np.full(cutflow_nums[0], True)
+
+    cuts = [
+            # "njets']) == 4"
+            # ,"ntag']) == 2"
+            # ,"bucket']) > 0"
+            "pass_resolved'])"
+            ]
+
+    for count, cut in enumerate(cuts):
+
+        pass_arr = pass_arr & np.array(eval("np.array(batch['"+cut))
+
+        cutflow_nums.append(np.sum(pass_arr))
 
 
-    KL_div = 0    
-    # 1-target i the non target distribution as target is either 0 or 1
-    for bin in range(len(hist_not_target)):
-        if hist_target[bin] == 0:
-            KL_div += 0
-        elif hist_not_target[bin] == 0:
-            KL_div += 0
-        else:
-            KL_div += hist_target[bin]*np.log(hist_target[bin]/hist_not_target[bin])
-    return KL_div
+    return pass_arr, cutflow_nums
 
-def Mean_Distance(hist_arrs, target):
-    
-    tot_dist = 0
-    # 1-target i the non target distribution as target is either 0 or 1
-    for bin in range(len(hist_arrs[1-target])):
-        tot_dist += np.abs(hist_arrs[target][bin]-hist_arrs[1-target][bin])
-    return tot_dist/len(hist_arrs[1-target])
+cut_args = ["njets", "ntag", "bucket","pass_resolved"]
+
 
 var_list = [[["njets"], [0,15,15], True, True],
             [["m_hh"], [0,4000,40], True, True],
@@ -64,17 +63,26 @@ var_list = [[["njets"], [0,15,15], True, True],
             [["eta_h1", "eta_h2"], [-2.5,2.5,40], False, True],
             [["X_hh"], [0,40,40], False, True],
             [["luminosity_resolved"],[0,30,30],False,True],
-            [["mc_sf"],[-5e-5,5e-5,50],True,True]]
+            [["mc_sf"],[-5e-5,5e-5,50],True,True],
+            [["HC_j4_m"],[0,1000,40],True,True],
+            [["bucket"],[-10,10,40],True,True]]
 
-parquet_locations = ["/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
-                     ,"/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
-                    #  ,"/storage/epp2/phubsg/bbbb_samples/bb_background_data/"
+parquet_locations = [
+                     "/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
+                     ,"/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/",
+                     "/storage/epp2/phubsg/bbbb_samples/bb_background_data/"
                      ]
 
-parquet_labels = ["combined_skim_ggFhh_chhh1p0_mc20a__Nominal.parquet"
-                  ,"combined_skim_ggFhh_chhh1p0_mc20d__Nominal.parquet"
-                #   ,"combined_skim_data16__Nominal.parquet"
+parquet_labels = [
+                  "combined_skim_ggFhh_chhh1p0_mc20a__Nominal.parquet",
+                  "combined_skim_ggFhh_chhh1p0_mc20d__Nominal.parquet",
+                  "combined_skim_data16__Nominal.parquet"
                   ]
+
+parquet_names = [
+                 "bbbb chhh1p0 mc20a",
+                 "bbbb chhh1p0 mc20d",
+                 "bb data16"]
 
 parquet_files = [parquet_locations[i]+parquet_labels[i] for i in range(len(parquet_locations))]
 
@@ -90,7 +98,8 @@ datasets = [pd.dataset(file) for file in parquet_files]
 ##   - 00B689 (Green)
 
 colours = ["#E78AA1",
-           "#9213E0"]
+           "#9213E0",
+           "#00B689"]
 
 
 for vars in var_list:
@@ -99,24 +108,41 @@ for vars in var_list:
 
     for var in vars[0]:
 
-        print(var)
+        print("__________________________")
+        print(var+":")
+        print("----------")
 
         dataset_hists = []
+
 
         for count, dataset in enumerate(datasets):
 
             var_hist = np.histogram([],bins=var_bins)[0]
 
-            for batch in dataset.to_batches(columns = [var,"pass_resolved"]):
+            print("* "+parquet_names[count]+":")
 
-                # if var == "mc_sf":
-                #     print(batch[0].to_numpy(zero_copy_only = False)[batch["pass_resolved"]])
+            n_nan = 0
+            n_passed = 0
 
-                var_hist += np.histogram(batch[0].to_numpy(zero_copy_only = False)[batch["pass_resolved"]], bins = var_bins)[0]
+            for batch in dataset.to_batches(columns = list(dict.fromkeys([var]+cut_args))):
+
+                cut_arr, cutflow_nums = batch_cuts(batch)
+
+                cut_batch = batch[0].to_numpy(zero_copy_only = False)[cut_arr]
+
+                n_nan += np.sum(np.isnan(cut_batch))
+
+                n_passed += np.sum(cut_arr)
+
+                var_hist += np.histogram(cut_batch, bins = var_bins)[0]
 
             dataset_hists.append(var_hist)
 
             plot_hist(var_hist, var_bins, vars[3], colour = colours[count], label = parquet_labels[count])
+
+            print("    N_events: "+str(dataset.count_rows()))
+            print("    N_passed: "+str(n_passed))
+            print("    N_nan: "+str(n_nan))
 
         if vars[2]:
             plt.yscale("log")
@@ -125,11 +151,6 @@ for vars in var_list:
         plt.legend(loc = "upper right")
         plt.xlabel(var)
         plt.ylabel("Normalised Number of Events" if vars[3] else "Number of Events")
-
-        KL_div = KL_Divergence(dataset_hists, dataset_target)
-        plt.text(0, 0.5,"KL Divergence = "+str(round(KL_div,4)),fontsize = 10)
-        # Mean_dist = Mean_Distance(dataset_hists, dataset_target)
-        # plt.text(0, 0.5,"Mean Distance = "+str(int(Mean_dist)),fontsize = 10)
 
         plt.savefig("plots/parquet/"+var+".pdf")
         plt.savefig("plots/parquet/"+var+".png")

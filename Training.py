@@ -18,6 +18,13 @@ import yaml
 #############################################################
 #############################################################
 
+kappa_lambdas = ["m1p0",
+				 "0p0",
+				 "1p0",
+				 "2p5",
+				 "5p0",
+				 "10p0"]
+
 # import config
 
 file = open("Config.yaml")
@@ -26,7 +33,22 @@ config = yaml.load(file, Loader=yaml.FullLoader)
 hyper_params = config["hyper_params"]["training"]
 net_name = config["net_name"]
 variables = config["inputs"]["variables"]
-klambda = config["inputs"]["files"]["klambda"]
+
+# Grabs the signal and background file locations
+signal_dir = config["inputs"]["files"]["signal_dir"]
+signal_files = config["inputs"]["files"]["signal_files"]
+
+background_dir = config["inputs"]["files"]["background_dir"]
+background_files = config["inputs"]["files"]["background_files"]
+
+# Grabs the kappa lambda used
+contained_lambdas = [klambda in signal_file for signal_file in signal_files for klambda in kappa_lambdas]
+
+if np.sum(contained_lambdas) != len(signal_files):
+	raise Exception("Unclear kappa lambdas in signal files!")
+
+kappa_lambda = kappa_lambdas[np.nonzero([klambda in signal_files[0] for klambda in kappa_lambdas])[0][0]]
+
 
 # Imports training and testing samples
 # And loops of all years to creat one dataset
@@ -35,12 +57,12 @@ years_mc_data = [("mc20a",["15","16"]),
 				 ("mc20d",["17"]),
 				 ("mc20e",["18"])]
 
-train_vecs, train_weights, train_lables = [],[],[]
-test_vecs, test_weights, test_lables = [],[],[]
+train_vecs, train_lables = [],[]
+test_vecs, test_lables = [],[]
 
 for year_count, year_tuple in enumerate(years_mc_data):
 
-	file_loc = "samples/"+klambda+"/"
+	file_loc = "samples/"+kappa_lambda+"/"
 
 	data_years_name = ""
 	for i in year_tuple[1]:
@@ -49,10 +71,10 @@ for year_count, year_tuple in enumerate(years_mc_data):
 			data_years_name = data_years_name + ","
 	year_name = year_tuple[0]+"("+data_years_name+")"
 
-	train_file = h5py.File("samples/"+klambda+"/"+year_name+"_train.h5","r")
-	test_file = h5py.File("samples/"+klambda+"/"+year_name+"_test.h5","r")
+	train_file = h5py.File("samples/"+kappa_lambda+"/"+year_name+"_train.h5","r")
+	test_file = h5py.File("samples/"+kappa_lambda+"/"+year_name+"_test.h5","r")
 
-	# Converts h5 files to datasets
+# Converts h5 files to datasets
 
 	train_tensors = []
 

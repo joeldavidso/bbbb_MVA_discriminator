@@ -38,14 +38,33 @@ def plot_hist(data_arr, bins, norm, colour, label, linewidth = 3, histtype = "st
 		ax.hist(data_arr, bins = bins, density = norm,	color = colour,	label = label, histtype = histtype, linewidth = linewidth, weights = weights)
 		ax.hist(data_arr, bins = bins,	density = norm,	color = colour,	alpha = alpha, weights = weights)
 
-def transport_distance_p_1(data_arr_sig,data_arr_bkg, bins):
+def transport_distance_p_1(data_arr_sig,sig_weights,data_arr_bkg,bkg_weights,bins):
 
-	hist_sig = np.histogram(data_arr_sig, bins = bins, density = True)[0]
-	hist_bkg = np.histogram(data_arr_bkg, bins = bins, density = True)[0]
+	sig_hist = np.histogram(data_arr_sig, bins = bins, weights = sig_weights)[0]
+	bkg_hist = np.histogram(data_arr_bkg, bins = bins, weights = bkg_weights)[0]
 
-	print(np.sum(hist_sig)*(bins[1]-bins[0]))
-	print(np.sum(hist_bkg))
+	sig_hist = sig_hist/np.sum(sig_hist)
+	bkg_hist = bkg_hist/np.sum(bkg_hist)
 
+	sig_cdf = np.cumsum(sig_hist)
+	bkg_cdf = np.cumsum(bkg_hist)
+
+	cdf_diff = np.subtract(sig_cdf,bkg_cdf)
+
+	distance = np.sum(np.abs(cdf_diff))
+
+	# sig_sorted = np.sort(data_arr_sig)
+	# bkg_sorted = np.sort(data_arr_bkg)
+
+	# print(sig_sorted)
+	# print(bkg_sorted)
+
+	# print(np.subtract(sig_sorted,bkg_sorted))
+
+	# distance = np.sum(np.abs(np.subtract(sig_sorted,bkg_sorted)))
+
+
+	return distance
 
 #############################################################
 #############################################################
@@ -55,13 +74,36 @@ def transport_distance_p_1(data_arr_sig,data_arr_bkg, bins):
 #############################################################
 #############################################################
 
+kappa_lambdas = ["m1p0",
+				 "0p0",
+				 "1p0",
+				 "2p5",
+				 "5p0",
+				 "10p0"]
+
 var_RW = "eta_h1"
 
 file = open("Config.yaml")
 config = yaml.load(file, Loader=yaml.FullLoader)
 hyper_params = config["hyper_params"]["training"]
 variables = config["inputs"]["variables"]
-klambda = config["inputs"]["files"]["klambda"]
+
+
+# Grabs the signal and background file locations
+signal_dir = config["inputs"]["files"]["signal_dir"]
+signal_files = config["inputs"]["files"]["signal_files"]
+
+background_dir = config["inputs"]["files"]["background_dir"]
+background_files = config["inputs"]["files"]["background_files"]
+
+# Grabs the kappa lambda used
+contained_lambdas = [klambda in signal_file for signal_file in signal_files for klambda in kappa_lambdas]
+
+if np.sum(contained_lambdas) != len(signal_files):
+	raise Exception("Unclear kappa lambdas in signal files!")
+
+kappa_lambda = kappa_lambdas[np.nonzero([klambda in signal_files[0] for klambda in kappa_lambdas])[0][0]]
+
 
 plot_dir = "plots/network/"+config["net_name"]+"/"
 
@@ -105,7 +147,7 @@ test_rw_arr = []
 
 for year_count, year_tuple in enumerate(years_mc_data):
 
-	file_loc = "samples/"+klambda+"/"
+	file_loc = "samples/"+kappa_lambda+"/"
 
 	data_years_name = ""
 	for i in year_tuple[1]:
@@ -114,7 +156,7 @@ for year_count, year_tuple in enumerate(years_mc_data):
 			data_years_name = data_years_name + ","
 	year_name = year_tuple[0]+"("+data_years_name+")"
 
-	test_file = h5py.File("samples/"+klambda+"/"+year_name+"_test.h5","r")
+	test_file = h5py.File("samples/"+kappa_lambda+"/"+year_name+"_test.h5","r")
 
 	# Converts h5 files to dataset
 	test_tensors = []
@@ -124,15 +166,15 @@ for year_count, year_tuple in enumerate(years_mc_data):
 
 	if year_count == 0:
 		test_vecs = torch.stack((test_tensors),-1)
-		test_weights = torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)
 		test_labels = torch.from_numpy(test_file["Data"]["label"]).unsqueeze(1)
+		test_weights = torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)
 
 		test_rw_arr = test_file["Data"][var_RW]
 
 	else:
 		test_vecs = torch.cat((test_vecs,torch.stack((test_tensors),-1)))
-		test_weights = torch.cat((test_weights,torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)))
 		test_labels = torch.cat((test_labels,torch.from_numpy(test_file["Data"]["label"]).unsqueeze(1)))
+		test_weights = torch.cat((test_weights,torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)))
 
 		test_rw_arr = np.append(test_rw_arr,test_file["Data"][var_RW])
 
@@ -142,28 +184,7 @@ for year_count, year_tuple in enumerate(years_mc_data):
 
 test_data = Data(test_vecs, test_weights, test_labels)
 
-# #####################################
-# # Imports training and testing samples
-# test_file = h5py.File("samples/test.h5","r")
-
-# test_tensors = []
-
-# for var in variables:
-# 	test_tensors.append(torch.from_numpy(test_file["Data"][var]))
-
-# test_data = Data(torch.stack((test_tensors),-1),
-# 				 torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1),
-# 				 torch.from_numpy(test_file["Data"]["label"]).unsqueeze(1)
-# 				 )
-
-# #####################################################
-
-# test_reweight_dataframe = pd.DataFrame({var_RW : test_file["Data"][var_RW]})
-
 test_reweight_dataframe = pd.DataFrame({var_RW : test_rw_arr})
-
-# # Closes h5 file
-# test_file.close()
 
 # Conversts datsets to datlaoaders for training
 test_dataloader = DataLoader(test_data, batch_size=hyper_params["batch_size"], shuffle=False)
@@ -264,7 +285,6 @@ plt.clf()
 
 ## Reweight
 
-
 bkg_to_sig_weights = []
 
 for count, label in enumerate(labels.flatten()):
@@ -277,24 +297,35 @@ bkg_to_sig_weights = np.array(bkg_to_sig_weights)
 
 bkg_to_sig_weights = pd.DataFrame({"weights": bkg_to_sig_weights})
 
-bins = np.linspace(-2.5,2.5,40)
+bins = np.linspace(-2.5,2.5,41)
 
 fig, (ax1, ax2) = plt.subplots(1, 2, sharey = True, figsize = (10,5))
 
-plot_hist(test_reweight_dataframe[var_RW][labels.flatten() == 1],
+sig_reweight_arr = test_reweight_dataframe[var_RW][labels.flatten() == 1]
+bkg_reweight_arr = test_reweight_dataframe[var_RW][labels.flatten() == 0]
+
+plot_hist(sig_reweight_arr,
           bins = bins, norm = True, colour = c1, label = "Signal", ax = ax1)
-plot_hist(test_reweight_dataframe[var_RW][labels.flatten() == 0],
+plot_hist(bkg_reweight_arr,
           bins = bins, norm = True, colour = c2, label = "Background", ax = ax1)
 
 
-plot_hist(test_reweight_dataframe[var_RW][labels.flatten() == 1],
+plot_hist(sig_reweight_arr,
           bins = bins, norm = True, colour = c1, label = "Signal", ax = ax2)
-plot_hist(test_reweight_dataframe[var_RW][labels.flatten() == 0], weights = bkg_to_sig_weights[labels.flatten() == 0],
+plot_hist(bkg_reweight_arr, weights = bkg_to_sig_weights[labels.flatten() == 0],
           bins = bins, norm = True, colour = c2, label = "Background_RW", ax = ax2)
 
-print(transport_distance_p_1((test_reweight_dataframe[var_RW][labels.flatten() == 1]),
-      test_reweight_dataframe[var_RW][labels.flatten() == 0],
-      bins))
+print(transport_distance_p_1(sig_reweight_arr,
+							 np.ones(sig_reweight_arr.shape),
+                             bkg_reweight_arr,
+							 np.ones(bkg_reweight_arr.shape),
+	                         bins = bins))
+
+print(transport_distance_p_1(sig_reweight_arr,
+							 np.ones(sig_reweight_arr.shape),
+                             bkg_reweight_arr,
+							 bkg_to_sig_weights["weights"][labels.flatten() == 0],
+	                         bins = bins))
 
 plt.draw()
 ax1.set_xlabel(var_RW)
