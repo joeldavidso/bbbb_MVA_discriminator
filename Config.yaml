@@ -1,65 +1,78 @@
 
-net_name: Testing_256_256_256_256_256_256_256_1em4_50
+samples:
 
-inputs:
+  N_batches: 1000
+  batch_size: 1000
 
   files:
-  
-    signal_dir: "/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
-    signal_files: 
+
+    bbbb_signal:
+      directory: "/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
+      files:
       - "combined_skim_ggFhh_chhh1p0_mc20a__Nominal.parquet"
       - "combined_skim_ggFhh_chhh1p0_mc20d__Nominal.parquet"
       - "combined_skim_ggFhh_chhh1p0_mc20e__Nominal.parquet"
+      save_name: "bbbb_sig_1p0_run2"
+      selections:
+        - ["pass_resolved",""]
+        - ["ntag", "==4"]
 
-    background_dir: "/storage/epp2/phubsg/bbbb_samples/bb_background_data/"
-    background_files:
+    bb_background:
+      directory: "/storage/epp2/phubsg/bbbb_samples/bb_background_data/"
+      files:
       - "combined_skim_data15__Nominal.parquet"
       - "combined_skim_data16__Nominal.parquet"
       - "combined_skim_data17__Nominal.parquet"
       - "combined_skim_data18__Nominal.parquet"
+      save_name: "bb_bkg_run2"
+      selections:
+        - ["pass_resolved",""]
+        - ["ntag", "==2"] 
 
-    N_batches: 1000
-    batch_size: 1000
+    bbbb_background:
+      directory: "/storage/epp2/phubsg/bbbb_samples/bbbb_background_prediction/data161718-gn277_orth1_4b_sr_124_cr_x1.6_detaCut/resolved_blind_h1h2/"
+      files:
+      - "df_pred__pipe_16_10xGP_mean.parquet"
+      - "df_pred__pipe_17_10xGP_mean.parquet"
+      - "df_pred__pipe_18_10xGP_mean.parquet"
+      save_name: "bbbb_bkg_run2"
+      selections:
+        - "None"
 
+variables:
+  - X_hh
+  - pt_h1
+  - pt_h2
+  - eta_h1
+  - eta_h2
+  - m_hh
+  - dEta_hh
+  - m_h1
+  - m_h2
+  - X_wt_tag
 
-  variables:
-    - X_hh
-    - pt_h1
-    - pt_h2
-    - eta_h1
-    - eta_h2
-    - m_hh
-    - dEta_hh
-    - m_h1
-    - m_h2
-    - dPhi_hh
-    - X_wt_tag
+training:
 
-  selections:
-    signal:
-      - ["pass_resolved",""]
-      - ["ntag", "==4"]
-      # - ["njets", ">=4"]
-    background:
-      - ["pass_resolved",""]
-      - ["ntag", "==2"]
-      # - ["njets", "==4"]
+  signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
+  background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
 
+  signal_name: "bbbb_sig"
+  background_name: "bb_bkg"
 
-hyper_params:
+  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
 
-  network:
-    hidden_layer_structure:
+  # signal_name: "bb_bkg"
+  # background_name: "bbbb_bkg"
+
+  structure:
+    hidden_layers:
       - 256
       - 256
       - 256
       - 256
-      - 256
-      - 256
-      - 256
-
-  training:
+  
+  learning:
     batch_size: 256
-    learning_rate: 1e-4
+    learning_rate: 1e-5
     epochs: 50
-

@@ -71,18 +71,21 @@ parquet_locations = [
                      "/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
                      ,"/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/",
                      "/storage/epp2/phubsg/bbbb_samples/bb_background_data/"
+                     ,"/storage/epp2/phubsg/bbbb_samples/bbbb_background_prediction/data161718-gn277_orth1_4b_sr_124_cr_x1.6_detaCut/resolved_blind_h1h2/"
                      ]
 
 parquet_labels = [
                   "combined_skim_ggFhh_chhh1p0_mc20a__Nominal.parquet",
                   "combined_skim_ggFhh_chhh1p0_mc20d__Nominal.parquet",
-                  "combined_skim_data16__Nominal.parquet"
+                  "combined_skim_data16__Nominal.parquet",
+                  "df_pred__pipe_16_10xGP_mean.parquet"
                   ]
 
 parquet_names = [
                  "bbbb chhh1p0 mc20a",
                  "bbbb chhh1p0 mc20d",
-                 "bb data16"]
+                 "bb data16",
+                 "bbbb predicted background 16"]
 
 parquet_files = [parquet_locations[i]+parquet_labels[i] for i in range(len(parquet_locations))]
 

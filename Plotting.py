@@ -56,12 +56,7 @@ def transport_distance_p_1(data_arr_sig,sig_weights,data_arr_bkg,bkg_weights,bin
 	# sig_sorted = np.sort(data_arr_sig)
 	# bkg_sorted = np.sort(data_arr_bkg)
 
-	# print(sig_sorted)
-	# print(bkg_sorted)
-
-	# print(np.subtract(sig_sorted,bkg_sorted))
-
-	# distance = np.sum(np.abs(np.subtract(sig_sorted,bkg_sorted)))
+	# distance = np.sum(np.abs(np.subtract(sig_sorted,bkg_sorted)))/sig_sorted.size
 
 
 	return distance
@@ -74,45 +69,30 @@ def transport_distance_p_1(data_arr_sig,sig_weights,data_arr_bkg,bkg_weights,bin
 #############################################################
 #############################################################
 
-kappa_lambdas = ["m1p0",
-				 "0p0",
-				 "1p0",
-				 "2p5",
-				 "5p0",
-				 "10p0"]
-
-var_RW = "eta_h1"
-
-file = open("Config.yaml")
+# import config
+file = open("Config_V3.yaml")
 config = yaml.load(file, Loader=yaml.FullLoader)
-hyper_params = config["hyper_params"]["training"]
-variables = config["inputs"]["variables"]
 
+variables = config["variables"]
+structure = config["training"]["structure"]["hidden_layers"]
+learning = config["training"]["learning"]
+signal = config["training"]["signal"]
+background = config["training"]["background"]
 
-# Grabs the signal and background file locations
-signal_dir = config["inputs"]["files"]["signal_dir"]
-signal_files = config["inputs"]["files"]["signal_files"]
+net_name = config["training"]["signal_name"]+"_"+config["training"]["background_name"]
 
-background_dir = config["inputs"]["files"]["background_dir"]
-background_files = config["inputs"]["files"]["background_files"]
+for i in range(len(structure)):
+	net_name += "_"+str(structure[i])
 
-# Grabs the kappa lambda used
-contained_lambdas = [klambda in signal_file for signal_file in signal_files for klambda in kappa_lambdas]
+net_name += "_"+str(learning["learning_rate"])+"_"+str(learning["epochs"])
 
-if np.sum(contained_lambdas) != len(signal_files):
-	raise Exception("Unclear kappa lambdas in signal files!")
-
-kappa_lambda = kappa_lambdas[np.nonzero([klambda in signal_files[0] for klambda in kappa_lambdas])[0][0]]
-
-
-plot_dir = "plots/network/"+config["net_name"]+"/"
+plot_dir = "plots/network/"+net_name+"/"
 
 if not os.path.exists(plot_dir):
 	os.mkdir(plot_dir)
 
-
 # Selects the best trained epoch
-ckpt_list = os.listdir("trained_networks/"+config["net_name"])
+ckpt_list = os.listdir("trained_networks/"+net_name)
 
 ckpt_nums = []
 for ckpt in ckpt_list:
@@ -131,69 +111,58 @@ for num, ckpt in enumerate(ckpt_list):
 print(ckpt_list[np.argmin(losses)])
 
 # Downloads trained model
-model = torch.load("trained_networks/"+config["net_name"]+"/"+ckpt_list[np.argmin(losses)], weights_only = False)
+model = torch.load("trained_networks/"+net_name+"/"+ckpt_list[np.argmin(losses)], weights_only = False)
 
 # Initialize loss function
 loss_function = nn.BCELoss()
 ###################################################################
 
-years_mc_data = [("mc20a",["15","16"]),
-				 ("mc20d",["17"]),
-				 ("mc20e",["18"])]
-
-test_vecs, test_weights, test_lables = [],[],[]
-
 test_rw_arr = []
+# Imports training and testing samples
 
-for year_count, year_tuple in enumerate(years_mc_data):
+# Grab Signal test and train files
+test_file = h5py.File(signal+"test.h5")
 
-	file_loc = "samples/"+kappa_lambda+"/"
+# Converts Files to dataset
+test_tensors = []
 
-	data_years_name = ""
-	for i in year_tuple[1]:
-		data_years_name = data_years_name + i
-		if i != year_tuple[1][-1]:
-			data_years_name = data_years_name + ","
-	year_name = year_tuple[0]+"("+data_years_name+")"
+for var in variables:
+	test_tensors.append(torch.from_numpy(test_file["Data"][var]))
 
-	test_file = h5py.File("samples/"+kappa_lambda+"/"+year_name+"_test.h5","r")
+test_vecs = torch.stack((test_tensors),-1)
+test_weights = torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)
+test_labels = torch.from_numpy(np.ones_like(test_file["Data"]["label"])).unsqueeze(1)
 
-	# Converts h5 files to dataset
-	test_tensors = []
+# Closes h5 files
+test_file.close()
 
-	for var in variables:
-		test_tensors.append(torch.from_numpy(test_file["Data"][var]))
+# Do it all again with background
+# Grab Signal test and train files
+test_file = h5py.File(background+"test.h5")
 
-	if year_count == 0:
-		test_vecs = torch.stack((test_tensors),-1)
-		test_labels = torch.from_numpy(test_file["Data"]["label"]).unsqueeze(1)
-		test_weights = torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)
+# Converts Files to dataset
+test_tensors = []
 
-		test_rw_arr = test_file["Data"][var_RW]
+for var in variables:
+	test_tensors.append(torch.from_numpy(test_file["Data"][var]))
 
-	else:
-		test_vecs = torch.cat((test_vecs,torch.stack((test_tensors),-1)))
-		test_labels = torch.cat((test_labels,torch.from_numpy(test_file["Data"]["label"]).unsqueeze(1)))
-		test_weights = torch.cat((test_weights,torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)))
+test_vecs = torch.cat((test_vecs,torch.stack((test_tensors),-1)))
+test_weights = torch.cat((test_weights,torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)))
+test_labels = torch.cat((test_labels,torch.from_numpy(np.zeros_like(test_file["Data"]["label"])).unsqueeze(1)))
 
-		test_rw_arr = np.append(test_rw_arr,test_file["Data"][var_RW])
-
-
-	# Closes h5 files
-	test_file.close()
-
+# Closes h5 files
+test_file.close()
 test_data = Data(test_vecs, test_weights, test_labels)
 
-test_reweight_dataframe = pd.DataFrame({var_RW : test_rw_arr})
-
 # Conversts datsets to datlaoaders for training
-test_dataloader = DataLoader(test_data, batch_size=hyper_params["batch_size"], shuffle=False)
+test_dataloader = DataLoader(test_data, batch_size=learning["batch_size"], shuffle=False)
 
 # Runs over validation/test dataset to generate arrays of the network inputs and outputs
 outputs, labels = test_loop(test_dataloader,model,loss_function)
 
 # Discriminant calculations
 discs = np.apply_along_axis(discriminant,0,outputs)
+ratios = np.exp(discs)
 
 # Rejection Plotting
 
@@ -250,14 +219,56 @@ plt.savefig(plot_dir+"outputs.png")
 plt.savefig(plot_dir+"outputs.pdf")
 plt.clf()
 
+## Ratio Plotting
+
+norm = True
+bins = np.linspace(0,1000,40)
+
+plot_hist(ratios[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = "Signal")
+plot_hist(ratios[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = "Background")
+
+plt.draw()
+
+plt.legend()
+plt.xlabel("Ratio")
+plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
+
+plt.savefig(plot_dir+"ratio.png")
+plt.savefig(plot_dir+"ratio.pdf")
+plt.clf()
+
+## Ratio Ratio Plotting
+
+norm = True
+# bins = np.linspace(0,1000,4)
+bins = np.logspace(0,10,40,base = np.e)
+
+ratio_ratio = np.divide(np.histogram(ratios[labels.flatten() == 1], bins = bins)[0],np.histogram(ratios[labels.flatten() == 0], bins = bins)[0])
+
+bins = (bins[1:]+bins[:-1])/2
+
+plt.plot(bins, ratio_ratio, color = c1,	label = "Ratio of Signal/Background", drawstyle = "steps", linewidth = 3)
+
+plt.draw()
+
+plt.legend()
+plt.xlabel("Ratio")
+plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
+
+plt.savefig("temp.png")
+plt.savefig("temp.pdf")
+plt.clf()
 
 ## Discriminant Plotting
 
-norm = True
+norm = False
 bins  = np.linspace(-10,10,40)
 
 plot_hist(discs[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = "Signal")
 plot_hist(discs[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = "Background")
+
+ax = plt.gca()
+ax.set_yscale("log")
 
 plt.draw()
 
@@ -267,6 +278,30 @@ plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
 
 plt.savefig(plot_dir+"discs.png")
 plt.savefig(plot_dir+"discs.pdf")
+plt.clf()
+
+## disc ratio plotting
+
+norm = True
+bins  = np.linspace(-10,10,40)
+
+ratio_ratio = np.divide(np.histogram(discs[labels.flatten() == 1], bins = bins)[0],np.histogram(discs[labels.flatten() == 0], bins = bins)[0])
+
+bins = (bins[1:]+bins[:-1])/2
+
+plt.plot(bins, ratio_ratio, color = c1,	label = "Ratio of Signal/Background", drawstyle = "steps", linewidth = 3)
+
+ax = plt.gca()
+ax.set_yscale("log")
+
+plt.draw()
+
+plt.legend()
+plt.xlabel("Discriminant Value")
+plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
+
+plt.savefig(plot_dir+"discs_ratio.png")
+plt.savefig(plot_dir+"discs_ratio.pdf")
 plt.clf()
 
 ## ROC curve
@@ -280,61 +315,6 @@ plt.ylabel("Background Rejection")
 
 plt.savefig(plot_dir+"ROC.png")
 plt.savefig(plot_dir+"ROC.pdf")
-plt.clf()
-
-
-## Reweight
-
-bkg_to_sig_weights = []
-
-for count, label in enumerate(labels.flatten()):
-	if label == 0 and (1-outputs[count] > 0):
-		bkg_to_sig_weights.append(((outputs[count])/(1-outputs[count]))[0])
-	elif label == 1:
-		bkg_to_sig_weights.append(1) 
-
-bkg_to_sig_weights = np.array(bkg_to_sig_weights)
-
-bkg_to_sig_weights = pd.DataFrame({"weights": bkg_to_sig_weights})
-
-bins = np.linspace(-2.5,2.5,41)
-
-fig, (ax1, ax2) = plt.subplots(1, 2, sharey = True, figsize = (10,5))
-
-sig_reweight_arr = test_reweight_dataframe[var_RW][labels.flatten() == 1]
-bkg_reweight_arr = test_reweight_dataframe[var_RW][labels.flatten() == 0]
-
-plot_hist(sig_reweight_arr,
-          bins = bins, norm = True, colour = c1, label = "Signal", ax = ax1)
-plot_hist(bkg_reweight_arr,
-          bins = bins, norm = True, colour = c2, label = "Background", ax = ax1)
-
-
-plot_hist(sig_reweight_arr,
-          bins = bins, norm = True, colour = c1, label = "Signal", ax = ax2)
-plot_hist(bkg_reweight_arr, weights = bkg_to_sig_weights[labels.flatten() == 0],
-          bins = bins, norm = True, colour = c2, label = "Background_RW", ax = ax2)
-
-print(transport_distance_p_1(sig_reweight_arr,
-							 np.ones(sig_reweight_arr.shape),
-                             bkg_reweight_arr,
-							 np.ones(bkg_reweight_arr.shape),
-	                         bins = bins))
-
-print(transport_distance_p_1(sig_reweight_arr,
-							 np.ones(sig_reweight_arr.shape),
-                             bkg_reweight_arr,
-							 bkg_to_sig_weights["weights"][labels.flatten() == 0],
-	                         bins = bins))
-
-plt.draw()
-ax1.set_xlabel(var_RW)
-ax2.set_xlabel(var_RW)
-ax1.set_ylabel("Normalized Number of Events")
-ax1.legend()
-ax2.legend()
-plt.savefig("test.png")
-plt.savefig("test.pdf")
 plt.clf()
 
 print("Done")
