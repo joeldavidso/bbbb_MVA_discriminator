@@ -52,8 +52,16 @@ def add_cuts(variables, selections):
 	return full_variables
 
 
+def calc_xhh(mh1s,mh2s):
+
+	left = (mh1s-124)/(0.1*mh1s)
+	right = (mh2s-117)/(0.1*mh2s)
+
+	return np.sqrt(left**2+right**2)
+
+
 # Grabs events of specific class and adds them to the dataset
-def prep_class(class_datasets, batch_size, n_batches, variables, selections):
+def prep_class(class_datasets, batch_size, n_batches, variables, selections, smear):
 
 	# Create data array
 	datatype = create_dataset_datatype(variables)
@@ -64,6 +72,8 @@ def prep_class(class_datasets, batch_size, n_batches, variables, selections):
 		full_variables = add_cuts(variables, selections)
 	else:
 		full_variables = variables
+
+	full_variables = list(dict.fromkeys(full_variables))
 
 	classes_dataset = []
 
@@ -99,7 +109,18 @@ def prep_class(class_datasets, batch_size, n_batches, variables, selections):
 				else:
 					nan_bool_arr = np.logical_or(nan_bool_arr, np.isnan(temp_dataset[variables[i]]))
 
-			# temp_dataset = temp_dataset[np.invert(nan_bool_arr)]
+
+			# If Smearing required then do it here and recalculate X_hh from smeard mh1 mh2 dists
+
+			if smear:
+				temp_dataset["m_h1"] = temp_dataset["m_h1"] + np.random.normal(0,1,temp_dataset["m_h1"].shape)
+				temp_dataset["m_h2"] = temp_dataset["m_h2"] + np.random.normal(0,1,temp_dataset["m_h2"].shape)
+
+				temp_dataset["X_hh"] = calc_xhh(temp_dataset["m_h1"],temp_dataset["m_h2"])
+
+				temp_dataset = temp_dataset[temp_dataset["X_hh"] < 1.6]
+
+
 
 			if np.sum(nan_bool_arr) > 0:
 				print(np.sum(nan_bool_arr))
@@ -120,14 +141,12 @@ def prep_class(class_datasets, batch_size, n_batches, variables, selections):
 				break
 
 		print("                                                  ")
-		print(temp_dataset.shape)
-		
+
 		# Add file dataset to class dataset
 		if dataset_number == 0:
 			classes_dataset = file_dataset
 		else:
 			classes_dataset = np.append(classes_dataset, file_dataset)
-
 
 	return classes_dataset
 
@@ -143,7 +162,7 @@ def prep_class(class_datasets, batch_size, n_batches, variables, selections):
 
 
 
-with open("Config_V2.yaml") as file:
+with open("Config.yaml") as file:
 
 	config = yaml.load(file, Loader=yaml.FullLoader)
 
@@ -178,7 +197,7 @@ with open("Config_V2.yaml") as file:
 		if N_target > N_events:
 			print("Resampling ratio of: "+str(np.round(N_target/N_events,2)))
 
-		dataset = prep_class(datasets, batch_size, n_batches, variables, sample_class["selections"])
+		dataset = prep_class(datasets, batch_size, n_batches, variables, sample_class["selections"], sample_class["smear"])
 
 		# Resample datasets to have equal number of events
 		N_events = len(dataset)

@@ -70,7 +70,7 @@ def transport_distance_p_1(data_arr_sig,sig_weights,data_arr_bkg,bkg_weights,bin
 #############################################################
 
 # import config
-file = open("Config_V3.yaml")
+file = open("Config.yaml")
 config = yaml.load(file, Loader=yaml.FullLoader)
 
 variables = config["variables"]
@@ -79,7 +79,14 @@ learning = config["training"]["learning"]
 signal = config["training"]["signal"]
 background = config["training"]["background"]
 
-net_name = config["training"]["signal_name"]+"_"+config["training"]["background_name"]
+net_name = config["training"]["add_name"]+"_"+config["training"]["signal_name"]+"_"+config["training"]["background_name"]
+
+save_to_label_dict = {"bbbb_sig": "4b signal mc",
+					  "bb_bkg": "2b2j data",
+					  "bbbb_bkg": "4b background prediction"}
+
+sig_name = save_to_label_dict[config["training"]["signal_name"]]
+bkg_name = save_to_label_dict[config["training"]["background_name"]]
 
 for i in range(len(structure)):
 	net_name += "_"+str(structure[i])
@@ -93,6 +100,8 @@ if not os.path.exists(plot_dir):
 
 # Selects the best trained epoch
 ckpt_list = os.listdir("trained_networks/"+net_name)
+ckpt_list.sort()
+ckpt_list.pop(-1)
 
 ckpt_nums = []
 for ckpt in ckpt_list:
@@ -206,8 +215,8 @@ plt.clf()
 norm = True
 bins  = np.linspace(0,1,40)
 
-plot_hist(outputs[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = "Signal")
-plot_hist(outputs[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = "Background")
+plot_hist(outputs[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = sig_name)
+plot_hist(outputs[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = bkg_name)
 
 plt.draw()
 
@@ -219,13 +228,39 @@ plt.savefig(plot_dir+"outputs.png")
 plt.savefig(plot_dir+"outputs.pdf")
 plt.clf()
 
+
+## Log Output Plotting
+
+norm = True
+bins  = np.linspace(-1,0,40)
+
+plot_hist(np.log(outputs[labels.flatten() == 1]), bins = bins, norm = norm, colour = c1, label = sig_name)
+plot_hist(np.log(outputs[labels.flatten() == 0]), bins = bins, norm = norm, colour = c2, label = bkg_name)
+
+ax = plt.gca()
+ax.set_yscale("log")
+
+plt.draw()
+
+plt.legend()
+plt.xlabel("Log(Output Score)")
+plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
+
+plt.savefig(plot_dir+"outputs_log.png")
+plt.savefig(plot_dir+"outputs_log.pdf")
+plt.clf()
+
+
 ## Ratio Plotting
 
 norm = True
 bins = np.linspace(0,1000,40)
 
-plot_hist(ratios[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = "Signal")
-plot_hist(ratios[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = "Background")
+plot_hist(ratios[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = sig_name)
+plot_hist(ratios[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = bkg_name)
+
+# ax = plt.gca()
+# ax.set_yscale("log")
 
 plt.draw()
 
@@ -264,11 +299,11 @@ plt.clf()
 norm = False
 bins  = np.linspace(-10,10,40)
 
-plot_hist(discs[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = "Signal")
-plot_hist(discs[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = "Background")
+plot_hist(discs[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = sig_name)
+plot_hist(discs[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = bkg_name)
 
-ax = plt.gca()
-ax.set_yscale("log")
+# ax = plt.gca()
+# ax.set_yscale("log")
 
 plt.draw()
 
@@ -289,7 +324,8 @@ ratio_ratio = np.divide(np.histogram(discs[labels.flatten() == 1], bins = bins)[
 
 bins = (bins[1:]+bins[:-1])/2
 
-plt.plot(bins, ratio_ratio, color = c1,	label = "Ratio of Signal/Background", drawstyle = "steps", linewidth = 3)
+plt.plot(bins, ratio_ratio, color = c1,	label = "Ratio of ("+sig_name+")/("+bkg_name+")", drawstyle = "steps", linewidth = 3)
+plt.plot(bins, np.exp(bins), color = c2,	label = "Ideal Ratio", drawstyle = "steps", linewidth = 2)
 
 ax = plt.gca()
 ax.set_yscale("log")
@@ -310,8 +346,8 @@ plt.plot(eff_space,rejs, linewidth = 3, color = c1)
 plt.draw()
 plt.yscale("log")
 
-plt.xlabel("Signal Efficiency")
-plt.ylabel("Background Rejection")
+plt.xlabel(sig_name+" Efficiency")
+plt.ylabel(bkg_name+" Rejection")
 
 plt.savefig(plot_dir+"ROC.png")
 plt.savefig(plot_dir+"ROC.pdf")

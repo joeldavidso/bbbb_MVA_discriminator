@@ -37,10 +37,11 @@ def batch_cuts(batch):
     pass_arr = np.full(cutflow_nums[0], True)
 
     cuts = [
+            "X_hh']) < 1.6"
             # "njets']) == 4"
             # ,"ntag']) == 2"
             # ,"bucket']) > 0"
-            "pass_resolved'])"
+            # "pass_resolved'])"
             ]
 
     for count, cut in enumerate(cuts):
@@ -52,40 +53,49 @@ def batch_cuts(batch):
 
     return pass_arr, cutflow_nums
 
-cut_args = ["njets", "ntag", "bucket","pass_resolved"]
+cut_args = [
+    "X_hh"
+    # "njets", 
+    # "ntag", 
+    # "bucket",
+    # "pass_resolved"
+    ]
 
 
-var_list = [[["njets"], [0,15,15], True, True],
-            [["m_hh"], [0,4000,40], True, True],
-            [["ntag"], [0,7,7], True, True],
-            [["m_h1", "m_h2"], [0,2500,40], True, True],
+var_list = [
+            # [["njets"], [0,15,15], True, True],
+            # [["m_hh"], [0,4000,40], True, True],
+            # [["ntag"], [0,7,7], True, True],
+            [["m_h1", "m_h2"], [100,150,31], False, False],
             [["pt_h1", "pt_h2"], [0,2000,40], True, True],
             [["eta_h1", "eta_h2"], [-2.5,2.5,40], False, True],
-            [["X_hh"], [0,40,40], False, True],
-            [["luminosity_resolved"],[0,30,30],False,True],
-            [["mc_sf"],[-5e-5,5e-5,50],True,True],
-            [["HC_j4_m"],[0,1000,40],True,True],
-            [["bucket"],[-10,10,40],True,True]]
+            [["X_hh"], [0,5,50], False, True]
+            # [["luminosity_resolved"],[0,30,30],False,True],
+            # [["mc_sf"],[-5e-5,5e-5,50],True,True],
+            # [["HC_j4_m"],[0,1000,40],True,True],
+            # [["bucket"],[-10,10,40],True,True]
+            ]
 
 parquet_locations = [
-                     "/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
-                     ,"/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/",
-                     "/storage/epp2/phubsg/bbbb_samples/bb_background_data/"
-                     ,"/storage/epp2/phubsg/bbbb_samples/bbbb_background_prediction/data161718-gn277_orth1_4b_sr_124_cr_x1.6_detaCut/resolved_blind_h1h2/"
+                    #  "/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/"
+                    #  ,"/storage/epp2/phubsg/bbbb_samples/bbbb_signal_mc/mc20/",
+                    #  "/storage/epp2/phubsg/bbbb_samples/bb_background_data/",
+                     "/storage/epp2/phubsg/bbbb_samples/bbbb_background_prediction/data161718-gn277_orth1_4b_sr_124_cr_x1.6_detaCut/resolved_blind_h1h2/"
                      ]
 
 parquet_labels = [
-                  "combined_skim_ggFhh_chhh1p0_mc20a__Nominal.parquet",
-                  "combined_skim_ggFhh_chhh1p0_mc20d__Nominal.parquet",
-                  "combined_skim_data16__Nominal.parquet",
+                #   "combined_skim_ggFhh_chhh1p0_mc20a__Nominal.parquet",
+                #   "combined_skim_ggFhh_chhh1p0_mc20d__Nominal.parquet",
+                #   "combined_skim_data16__Nominal.parquet",
                   "df_pred__pipe_16_10xGP_mean.parquet"
                   ]
 
 parquet_names = [
-                 "bbbb chhh1p0 mc20a",
-                 "bbbb chhh1p0 mc20d",
-                 "bb data16",
-                 "bbbb predicted background 16"]
+                #  "bbbb chhh1p0 mc20a",
+                #  "bbbb chhh1p0 mc20d",
+                #  "bb data16",
+                 "bbbb predicted background 16"
+                 ]
 
 parquet_files = [parquet_locations[i]+parquet_labels[i] for i in range(len(parquet_locations))]
 
@@ -141,7 +151,7 @@ for vars in var_list:
 
             dataset_hists.append(var_hist)
 
-            plot_hist(var_hist, var_bins, vars[3], colour = colours[count], label = parquet_labels[count])
+            plot_hist(var_hist, var_bins, vars[3], colour = colours[count], label = parquet_names[count])
 
             print("    N_events: "+str(dataset.count_rows()))
             print("    N_passed: "+str(n_passed))

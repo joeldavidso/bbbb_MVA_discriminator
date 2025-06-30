@@ -15,7 +15,11 @@ samples:
       save_name: "bbbb_sig_1p0_run2"
       selections:
         - ["pass_resolved",""]
-        - ["ntag", "==4"]
+        - ["ntag", "==4"] 
+        - ["X_hh","<1.6"]
+        - ["dEta_hh","<1.5"]
+        # - ["pass_vbf_sel",""]
+      smear: False
 
     bb_background:
       directory: "/storage/epp2/phubsg/bbbb_samples/bb_background_data/"
@@ -28,6 +32,14 @@ samples:
       selections:
         - ["pass_resolved",""]
         - ["ntag", "==2"] 
+        - ["X_hh","<1.6"]
+        - ["dEta_hh","<1.5"]
+        # - ["pass_vbf_sel",""]
+        # - ["m_h1",">85.4"]
+        # - ["m_h1","<175"]
+        # - ["m_h2",">80.6"]
+        # - ["m_h2","<165.1"]
+      smear: False
 
     bbbb_background:
       directory: "/storage/epp2/phubsg/bbbb_samples/bbbb_background_prediction/data161718-gn277_orth1_4b_sr_124_cr_x1.6_detaCut/resolved_blind_h1h2/"
@@ -37,7 +49,9 @@ samples:
       - "df_pred__pipe_18_10xGP_mean.parquet"
       save_name: "bbbb_bkg_run2"
       selections:
-        - "None"
+        - ["X_hh","<1.6"]
+        # - "None"
+      smear: True
 
 variables:
   - X_hh
@@ -53,26 +67,32 @@ variables:
 
 training:
 
-  signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
-  background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  add_name: "XHH_2"
 
-  signal_name: "bbbb_sig"
-  background_name: "bb_bkg"
+  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
+  # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
 
-  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
-  # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
+  # signal_name: "bbbb_sig"
+  # background_name: "bb_bkg"
 
-  # signal_name: "bb_bkg"
-  # background_name: "bbbb_bkg"
+  signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
+
+  signal_name: "bb_bkg"
+  background_name: "bbbb_bkg"
 
   structure:
     hidden_layers:
-      - 256
-      - 256
-      - 256
-      - 256
-  
+      - 128
+      - 128
+      - 128
+      - 128
+      - 128
+      - 128
+
   learning:
+    optimizer: "Adam"
+    scheduler: "Cosine"
     batch_size: 256
-    learning_rate: 1e-5
+    learning_rate: 5e-5
     epochs: 50

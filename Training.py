@@ -7,8 +7,10 @@ from torch import nn
 from torch.utils.data import DataLoader,Dataset
 from torchvision import datasets
 from torchvision.transforms import ToTensor
-from Utils import Data, Network, train_loop, val_loop
+from Utils import Data, Network, train_loop, val_loop, plot_var, var_bins
 import yaml
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 #############################################################
 #############################################################
@@ -29,12 +31,18 @@ learning = config["training"]["learning"]
 signal = config["training"]["signal"]
 background = config["training"]["background"]
 
-net_name = config["training"]["signal_name"]+"_"+config["training"]["background_name"]
+net_name = config["training"]["add_name"]+"_"+config["training"]["signal_name"]+"_"+config["training"]["background_name"]
 
 for i in range(len(structure)):
 	net_name += "_"+str(structure[i])
 
 net_name += "_"+str(learning["learning_rate"])+"_"+str(learning["epochs"])
+
+# Opens network directory for saving
+if not os.path.exists("trained_networks/"+net_name):
+	os.mkdir("trained_networks/"+net_name)
+
+print("Net Name: "+ net_name)
 
 # Imports training and testing samples
 
@@ -88,11 +96,22 @@ test_labels = torch.cat((test_labels,torch.from_numpy(np.zeros_like(test_file["D
 test_file.close()
 train_file.close()
 
-
 train_data = Data(train_vecs, train_weights, train_labels)
 test_data = Data(test_vecs, test_weights, test_labels)
 
 print("No. Train: "+str(len(train_data)))
+
+# Plotting inputs
+
+print(train_data.vecs[:,2])
+
+for count, var in enumerate(variables):
+
+	bins = var_bins[var]
+
+	plot_var(train_data.vecs[:,count], train_data.labels.flatten(), "train", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
+	plot_var(test_data.vecs[:,count], test_data.labels.flatten(), "test", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
+
 
 # Converts datsets to datlaoaders for training
 train_dataloader = DataLoader(train_data, batch_size=learning["batch_size"], shuffle=True)
@@ -119,14 +138,19 @@ print(model)
 loss_function = nn.BCELoss(reduction="none")
 
 # Initialize the optimizer with Stockastic Gradient Descent function
-optimizer = torch.optim.SGD(model.parameters(), lr=float(learning["learning_rate"]), momentum = 0.8)
+if learning["optimizer"] == "SGD":
+	optimizer = torch.optim.SGD(model.parameters(), lr=float(learning["learning_rate"]), momentum = 0.8)
+elif learning["optimizer"] == "Adam":
+	optimizer = torch.optim.Adam(model.parameters(), lr=float(learning["learning_rate"]))
+else:
+	raise("Please Select a Valid Optimizer")
+
 
 # Initialize the learning rate schduler
-scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.9)
-
-# Opens network directory for saving
-if not os.path.exists("trained_networks/"+net_name):
-	os.mkdir("trained_networks/"+net_name)
+if learning["scheduler"] == "Exponential":
+	scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.9)
+elif learning["scheduler"] == "Cosine":
+	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max = learning["epochs"], eta_min = 0)
 
 # Loop over epochs to train and validate
 for e in range(learning["epochs"]):

@@ -6,6 +6,8 @@ from torch import nn
 from torch.utils.data import DataLoader,Dataset
 from torchvision import datasets
 from torchvision.transforms import ToTensor
+import os
+import matplotlib.pyplot as plt
 
 #############################################################
 #############################################################
@@ -15,6 +17,16 @@ from torchvision.transforms import ToTensor
 #############################################################
 #############################################################
 
+var_bins = {"dEta_hh": np.linspace(0,2.5,31),
+            "eta_h1": np.linspace(-2.5,2.5,31),
+            "eta_h2": np.linspace(-2.5,2.5,31),
+            "m_h1": np.linspace(100,150,31),
+            "m_h2": np.linspace(100,150,31),
+            "m_hh": np.linspace(0,1000,31),
+            "pt_h1": np.linspace(0,600,31),
+            "pt_h2": np.linspace(0,600,31),
+            "X_hh": np.linspace(0,1.6,31),
+            "X_wt_tag": np.linspace(0,12,31)}
 
 # Creates dataset class
 class Data(Dataset):
@@ -161,3 +173,30 @@ def test_loop(dataloader, model, loss_fn):
 						labels.append(label_num[count])
 	
 	return np.array(out), np.array(labels)
+
+def plot_var(dataset, labels, test_train, var_name, plot_dir, bins, sig_name, bkg_name):
+
+	c1 = "#DE0C62"
+	c2 = "#9213E0"
+
+	if not os.path.exists(plot_dir+"/plots/"):
+		os.mkdir(plot_dir+"/plots/")
+
+	if not os.path.exists(plot_dir+"/plots/"+test_train+"/"):
+		os.mkdir(plot_dir+"/plots/"+test_train+"/")
+
+	plt.hist(dataset[labels == 1], bins = bins, histtype = "step", density = False, color = c1, label = sig_name, linewidth = 3)
+	plt.hist(dataset[labels == 0], bins = bins, histtype = "step", density = False, color = c2, label = bkg_name, linewidth = 3)
+
+	plt.hist(dataset[labels == 1], bins = bins, density = False, color = c1, alpha = 0.1)
+	plt.hist(dataset[labels == 0], bins = bins, density = False, color = c2, alpha = 0.1)
+
+	plt.draw()
+
+	plt.legend()
+	plt.xlabel(var_name)
+	plt.ylabel("Number of Events")
+
+	plt.savefig(plot_dir+"/plots/"+test_train+"/"+var_name+".png")
+	plt.savefig(plot_dir+"/plots/"+test_train+"/"+var_name+".pdf")
+	plt.clf()
