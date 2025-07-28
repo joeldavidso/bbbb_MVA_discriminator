@@ -8,6 +8,7 @@ from torchvision import datasets
 from torchvision.transforms import ToTensor
 import os
 import matplotlib.pyplot as plt
+import skink as skplt
 
 #############################################################
 #############################################################
@@ -17,16 +18,16 @@ import matplotlib.pyplot as plt
 #############################################################
 #############################################################
 
-var_bins = {"dEta_hh": np.linspace(0,2.5,31),
-            "eta_h1": np.linspace(-2.5,2.5,31),
-            "eta_h2": np.linspace(-2.5,2.5,31),
-            "m_h1": np.linspace(100,150,31),
-            "m_h2": np.linspace(100,150,31),
-            "m_hh": np.linspace(0,1000,31),
-            "pt_h1": np.linspace(0,600,31),
-            "pt_h2": np.linspace(0,600,31),
-            "X_hh": np.linspace(0,1.6,31),
-            "X_wt_tag": np.linspace(0,12,31)}
+var_bins = {"dEta_hh": skplt.get_bins(0,1.5,30),
+            "eta_h1": skplt.get_bins(-2.5,2.5,30),
+            "eta_h2": skplt.get_bins(-2.5,2.5,30),
+            "m_h1": skplt.get_bins(100,150,30),
+            "m_h2": skplt.get_bins(100,150,30),
+            "m_hh": skplt.get_bins(0,1000,30),
+            "pt_h1": skplt.get_bins(0,600,30),
+            "pt_h2": skplt.get_bins(0,600,30),
+            "X_hh": skplt.get_bins(0,1.6,30),
+            "X_wt_tag": skplt.get_bins(0,10,30)}
 
 # Creates dataset class
 class Data(Dataset):
@@ -62,9 +63,18 @@ class Network(nn.Module):
 		model_layers.append(nn.Linear(in_dim, output_dim))
 		model_layers.append(nn.Sigmoid())
 
-
 		self.operation = nn.Sequential(*model_layers)
 
+	# 	self.apply(self._init_weights)
+
+	# # Initializes weights accoring to Normal dist with mean 0 and std 1
+	# def _init_weights(self, module):
+	# 	if isinstance(module, nn.Linear):
+	# 		module.weight.data.normal_(mean=0.0, std=1.0)
+	# 		if module.bias is not None:
+	# 			module.bias.data.zero_()
+
+	# Defines the forward pass
 	def forward(self, input):
 		out = self.operation(input)
 		return out
@@ -81,7 +91,6 @@ def train_loop(dataloader, model, loss_fn, optimizer, scheduler, epoch, batch_si
 
 	# Loop over batches
 	for batch, (vec,weight,label) in enumerate(dataloader):
-
 
 		# Apply model to batch and calculate loss
 		pred = model(vec)
@@ -105,8 +114,9 @@ def train_loop(dataloader, model, loss_fn, optimizer, scheduler, epoch, batch_si
 		if int(100*(batch-1)/num_batches) != int(100*(batch)/num_batches):
 			loss, current = loss.item(), batch*batch_size+len(label)
 			print(f"\rloss: "+str(loss)+"   ["+str(current)+"/"+str(size)+"]   ["+str(int(100*current/size))+"%]", end = "", flush = True)
-	scheduler.step()
+		scheduler.step()
 
+	return tot_loss/(batch+1)
 
 # The validation loop
 def val_loop(dataloader, model, loss_fn, epoch):
@@ -176,27 +186,29 @@ def test_loop(dataloader, model, loss_fn):
 
 def plot_var(dataset, labels, test_train, var_name, plot_dir, bins, sig_name, bkg_name):
 
-	c1 = "#DE0C62"
-	c2 = "#9213E0"
-
 	if not os.path.exists(plot_dir+"/plots/"):
 		os.mkdir(plot_dir+"/plots/")
 
 	if not os.path.exists(plot_dir+"/plots/"+test_train+"/"):
 		os.mkdir(plot_dir+"/plots/"+test_train+"/")
 
-	plt.hist(dataset[labels == 1], bins = bins, histtype = "step", density = False, color = c1, label = sig_name, linewidth = 3)
-	plt.hist(dataset[labels == 0], bins = bins, histtype = "step", density = False, color = c2, label = bkg_name, linewidth = 3)
+	if sig_name == "bb_bkg":
+		sig_name = "2b2j_data"
+	elif bkg_name == "bb_bkg":
+		bkg_name = "2b2j_data"
 
-	plt.hist(dataset[labels == 1], bins = bins, density = False, color = c1, alpha = 0.1)
-	plt.hist(dataset[labels == 0], bins = bins, density = False, color = c2, alpha = 0.1)
+	HistogramPlot = skplt.HistogramPlot(bins = bins, xlabel = var_name, ylabel = "Number of Events", ratio = True, plot_unc = True)
 
-	plt.draw()
+	HistogramPlot.Add(data = dataset[labels == 1], label = sig_name, fill = "A0", refernece = True)
+	HistogramPlot.Add(data = dataset[labels == 0], label = bkg_name, fill = "A0")
 
-	plt.legend()
-	plt.xlabel(var_name)
-	plt.ylabel("Number of Events")
+	HistogramPlot.Plot(plot_dir+"/plots/"+test_train+"/"+var_name)
 
-	plt.savefig(plot_dir+"/plots/"+test_train+"/"+var_name+".png")
-	plt.savefig(plot_dir+"/plots/"+test_train+"/"+var_name+".pdf")
-	plt.clf()
+def plot_losses(train_losses, val_losses, epochs, plot_dir):
+
+	LinePlot = skplt.LinePlot(xs = [e for e in range(epochs)], xlabel = "Epoch", ylabel = "Loss", ratio = False, plot_unc = False)
+
+	LinePlot.Add(ys = [round(float(loss),4) for loss in train_losses], label = "Avg. Train Loss")
+	LinePlot.Add(ys = [round(float(loss),4) for loss in val_losses], label = "Avg. Val Loss")
+
+	LinePlot.Plot(plot_dir+"loss")

@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader,Dataset
 from Utils import test_loop, Network, Data
 import yaml
 import pandas as pd
+import skink as skplt
 
 def discriminant(arr: np.ndarray) -> np.ndarray:
     eps = 1e-8
@@ -28,38 +29,6 @@ def calc_rej(discs, labels, sig_eff):
 	rejection = sum_bkg/sum_pass
 
 	return rejection
-
-def plot_hist(data_arr, bins, norm, colour, label, linewidth = 3, histtype = "step", alpha = 0.1, ax = None, weights = None):
-
-	if not ax:
-		plt.hist(data_arr, bins = bins, density = norm,	color = colour,	label = label, histtype = histtype, linewidth = linewidth, weights = weights)
-		plt.hist(data_arr, bins = bins,	density = norm,	color = colour,	alpha = alpha, weights = weights)
-	else:
-		ax.hist(data_arr, bins = bins, density = norm,	color = colour,	label = label, histtype = histtype, linewidth = linewidth, weights = weights)
-		ax.hist(data_arr, bins = bins,	density = norm,	color = colour,	alpha = alpha, weights = weights)
-
-def transport_distance_p_1(data_arr_sig,sig_weights,data_arr_bkg,bkg_weights,bins):
-
-	sig_hist = np.histogram(data_arr_sig, bins = bins, weights = sig_weights)[0]
-	bkg_hist = np.histogram(data_arr_bkg, bins = bins, weights = bkg_weights)[0]
-
-	sig_hist = sig_hist/np.sum(sig_hist)
-	bkg_hist = bkg_hist/np.sum(bkg_hist)
-
-	sig_cdf = np.cumsum(sig_hist)
-	bkg_cdf = np.cumsum(bkg_hist)
-
-	cdf_diff = np.subtract(sig_cdf,bkg_cdf)
-
-	distance = np.sum(np.abs(cdf_diff))
-
-	# sig_sorted = np.sort(data_arr_sig)
-	# bkg_sorted = np.sort(data_arr_bkg)
-
-	# distance = np.sum(np.abs(np.subtract(sig_sorted,bkg_sorted)))/sig_sorted.size
-
-
-	return distance
 
 #############################################################
 #############################################################
@@ -84,7 +53,7 @@ background = config["training"]["background"]
 net_name = config["training"]["add_name"]+"_"+config["training"]["signal_name"]+"_"+config["training"]["background_name"]
 
 save_to_label_dict = {"bbbb_sig": "4b signal mc",
-					  "bb_bkg": "2b2j data",
+					  "bb_data": "2b2j data",
 					  "bbbb_bkg": "4b background prediction"}
 
 sig_name = save_to_label_dict[config["training"]["signal_name"]]
@@ -125,7 +94,7 @@ print(ckpt_list[np.argmin(losses)])
 model = torch.load("trained_networks/"+net_name+"/"+ckpt_list[np.argmin(losses)], weights_only = False)
 
 # Initialize loss function
-loss_function = nn.BCELoss()
+loss_function = nn.BCELoss(reduction="none")
 ###################################################################
 
 test_rw_arr = []
@@ -187,172 +156,58 @@ for eff in eff_space:
 
 print("Plotting")
 
-## Colour Scheme we want:
-##   - E78AA1 (Orange)
-##   - DE0C62 (Red)
-##   - 9213E0 (Purple)
-##   - 11B7E0 (Blue)
-##   - 00B689 (Green)
-
-c1 = "#DE0C62"
-c2 = "#9213E0"
-
-## Loss curve
-
-ckpt_nums_sorted, losses_sorted = zip(*sorted(zip(ckpt_nums,losses)))
-
-
-plt.plot(ckpt_nums_sorted,[round(float(loss),4) for loss in losses_sorted], linewidth = 3, color = c1)
-plt.draw()
-
-plt.xlabel("Epoch")
-plt.ylabel("Avg. Validation Loss")
-
-plt.savefig(plot_dir+"loss.png")
-plt.savefig(plot_dir+"loss.pdf")
-plt.clf()
-
 ## Output Plotting
 
-norm = True
-bins  = np.linspace(0,1,40)
+bins  = skplt.get_bins(0,1,40)
 
-plot_hist(outputs[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = sig_name)
-plot_hist(outputs[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = bkg_name)
+HistogramPlot = skplt.HistogramPlot(bins = bins, xlabel = "Output Score", ylabel = "Number of Events")
 
-plt.draw()
+HistogramPlot.add(data = outputs[labels.flatten() == 1], label = sig_name)
+HistogramPlot.add(data = outputs[labels.flatten() == 0], label = bkg_name)
 
-plt.legend()
-plt.xlabel("Output Score")
-plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
-
-plt.savefig(plot_dir+"outputs.png")
-plt.savefig(plot_dir+"outputs.pdf")
-plt.clf()
-
-
-## Log Output Plotting
-
-norm = True
-bins  = np.linspace(-1,0,40)
-
-plot_hist(np.log(outputs[labels.flatten() == 1]), bins = bins, norm = norm, colour = c1, label = sig_name)
-plot_hist(np.log(outputs[labels.flatten() == 0]), bins = bins, norm = norm, colour = c2, label = bkg_name)
-
-ax = plt.gca()
-ax.set_yscale("log")
-
-plt.draw()
-
-plt.legend()
-plt.xlabel("Log(Output Score)")
-plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
-
-plt.savefig(plot_dir+"outputs_log.png")
-plt.savefig(plot_dir+"outputs_log.pdf")
-plt.clf()
-
+HistogramPlot.Plot(plot_dir+"outputs")
 
 ## Ratio Plotting
 
 norm = True
-bins = np.linspace(0,1000,40)
+bins = skplt.get_bins(0,1000,40)
 
-plot_hist(ratios[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = sig_name)
-plot_hist(ratios[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = bkg_name)
+HistogramPlot = skplt.HistogramPlot(bins = bins, xlabel = "Ratio", ylabel = "Number of Events", logy = True)
 
-# ax = plt.gca()
-# ax.set_yscale("log")
+HistogramPlot.Add(data = ratios[labels.flatten() == 1], label = sig_name)
+HistogramPlot.Add(data = ratios[labels.flatten() == 0], label = bkg_name)	
 
-plt.draw()
-
-plt.legend()
-plt.xlabel("Ratio")
-plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
-
-plt.savefig(plot_dir+"ratio.png")
-plt.savefig(plot_dir+"ratio.pdf")
-plt.clf()
-
-## Ratio Ratio Plotting
-
-norm = True
-# bins = np.linspace(0,1000,4)
-bins = np.logspace(0,10,40,base = np.e)
-
-ratio_ratio = np.divide(np.histogram(ratios[labels.flatten() == 1], bins = bins)[0],np.histogram(ratios[labels.flatten() == 0], bins = bins)[0])
-
-bins = (bins[1:]+bins[:-1])/2
-
-plt.plot(bins, ratio_ratio, color = c1,	label = "Ratio of Signal/Background", drawstyle = "steps", linewidth = 3)
-
-plt.draw()
-
-plt.legend()
-plt.xlabel("Ratio")
-plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
-
-plt.savefig("temp.png")
-plt.savefig("temp.pdf")
-plt.clf()
+HistogramPlot.Plot(plot_dir+"ratio")
 
 ## Discriminant Plotting
 
-norm = False
-bins  = np.linspace(-10,10,40)
+bins  = skplt.get_bins(-10,10,40)
 
-plot_hist(discs[labels.flatten() == 1], bins = bins, norm = norm, colour = c1, label = sig_name)
-plot_hist(discs[labels.flatten() == 0], bins = bins, norm = norm, colour = c2, label = bkg_name)
+HistogramPlot = skplt.HistogramPlot(bins = bins, xlabel = "Discriminant Value", ylabel = "Number of Events", ratio = True, logy = False)
 
-# ax = plt.gca()
-# ax.set_yscale("log")
+HistogramPlot.Add(data = discs[labels.flatten() == 1], label = sig_name, refernece = True)
+HistogramPlot.Add(data = discs[labels.flatten() == 0], label = bkg_name)
 
-plt.draw()
+HistogramPlot.Plot(plot_dir+"discs")
 
-plt.legend()
-plt.xlabel("Discriminant Value")
-plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
-
-plt.savefig(plot_dir+"discs.png")
-plt.savefig(plot_dir+"discs.pdf")
-plt.clf()
 
 ## disc ratio plotting
 
-norm = True
-bins  = np.linspace(-10,10,40)
-
 ratio_ratio = np.divide(np.histogram(discs[labels.flatten() == 1], bins = bins)[0],np.histogram(discs[labels.flatten() == 0], bins = bins)[0])
 
-bins = (bins[1:]+bins[:-1])/2
+LinePlot = skplt.LinePlot(xs = bins[1], xlabel = "Discriminant Value", ylabel = "Ratio of Discriminant Values", logy = True, ratio = True)
 
-plt.plot(bins, ratio_ratio, color = c1,	label = "Ratio of ("+sig_name+")/("+bkg_name+")", drawstyle = "steps", linewidth = 3)
-plt.plot(bins, np.exp(bins), color = c2,	label = "Ideal Ratio", drawstyle = "steps", linewidth = 2)
+LinePlot.Add(ys = ratio_ratio, label = "Ratio of ("+sig_name+")/("+bkg_name+")", refernece = True)
+LinePlot.Add(ys = np.exp(bins[1]), label = "Ideal Ratio", drawstyle = "steps", drawstyle = "--", colour = "grey")
 
-ax = plt.gca()
-ax.set_yscale("log")
-
-plt.draw()
-
-plt.legend()
-plt.xlabel("Discriminant Value")
-plt.ylabel("Normalised Number of Events" if norm else "Number of Events")
-
-plt.savefig(plot_dir+"discs_ratio.png")
-plt.savefig(plot_dir+"discs_ratio.pdf")
-plt.clf()
+LinePlot.Plot(plot_dir+"discs_ratio")
 
 ## ROC curve
 
-plt.plot(eff_space,rejs, linewidth = 3, color = c1)
-plt.draw()
-plt.yscale("log")
+LinePlot = skplt.LinePlot(xs = eff_space, xlabel = sig_name+" Efficiency", ylabel = bkg_name+" Rejection", logy = True)
 
-plt.xlabel(sig_name+" Efficiency")
-plt.ylabel(bkg_name+" Rejection")
+LinePlot.Add(ys = rejs)
 
-plt.savefig(plot_dir+"ROC.png")
-plt.savefig(plot_dir+"ROC.pdf")
-plt.clf()
+LinePlot.Plot(plot_dir+"ROC")
 
 print("Done")

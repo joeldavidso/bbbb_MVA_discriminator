@@ -38,7 +38,7 @@ def get_bins(xmin, xmax, nbins):
 
 class PlotBase:
 
-    def __init__(self, xlabel, ylabel, ratio = False, density = False, sizex = 6, sizey = 6):
+    def __init__(self, xlabel, ylabel, ratio = False, density = False, sizex = 6, sizey = 6, logy = False):
         
         # Create figure and axes 
         fig, ax = plt.subplots(figsize = (sizex, sizey + (1.2 if ratio else 0)))
@@ -48,6 +48,8 @@ class PlotBase:
 
         self.ratio = ratio
         self.density = density
+
+        self.logy = logy
 
         ax.set_xlabel(xlabel)
         ax.set_ylabel("Density from " + ylabel if density else ylabel)
@@ -110,7 +112,7 @@ class PlotBase:
 class HistogramPlot(PlotBase):
     
 
-    def __init__(self, bins, xlabel = "X", ylabel = "Y", ratio = False, density = False, plot_unc = True, cpallet = "Pastel", sizex = 5, sizey = 5):
+    def __init__(self, bins, xlabel = "X", ylabel = "Y", ratio = False, density = False, plot_unc = True, cpallet = "Pastel", sizex = 5, sizey = 5, logy = False):
         
         # Initialize relevant callable values
         self.histograms = []
@@ -119,7 +121,7 @@ class HistogramPlot(PlotBase):
         self.colours = C_Pallets[cpallet]
         self.plot_unc = plot_unc
 
-        super().__init__(xlabel, ylabel, ratio = ratio, density = density, sizex = 5, sizey = 5)
+        super().__init__(xlabel, ylabel, ratio = ratio, density = density, sizex = 5, sizey = 5, logy = logy)
 
 
     def Add(self, data, label = "Add Label !!!!!!!!!!", colour = None, uncs = None,
@@ -224,12 +226,12 @@ class HistogramPlot(PlotBase):
         self.ratio_ax.margins(x = 0, y = 0.05) if self.ratio else None
         self.ratio_ax.set_ylim(bottom = max(0,self.ratio_ax.get_ylim()[0])) if self.ratio else None
 
-        # self.primary_ax.set_xlim(left = self.bin_edges[0], right = self.bin_edges[-1])
+        self.primary_ax.set_yscale("log") if self.logy else None
+
         self.primary_ax.legend(loc = legend_loc[0], frameon = frame)
 
         if self.ratio_ax is not None:
 
-            # self.ratio_ax.set_xlim(left = self.bin_edges[0], right = self.bin_edges[-1])
             self.ratio_ax.legend(loc = legend_loc[1], frameon = frame)
 
         plt.draw()
@@ -237,7 +239,7 @@ class HistogramPlot(PlotBase):
         plt.savefig(plot_path+".pdf", bbox_inches = "tight")
         plt.savefig(plot_path+".png", bbox_inches = "tight")
 
-        plt.clf()
+        plt.close(self.figure)
 
                                    ######################################################
 ############################################           Line Plot Class          ###########################################
@@ -333,11 +335,11 @@ class LinePlot(PlotBase):
         self.ratio_ax.margins(x = 0, y = 0.05) if self.ratio else None
         self.ratio_ax.set_ylim(bottom = max(0,self.ratio_ax.get_ylim()[0])) if self.ratio else None
 
-        # self.primary_ax.set_xlim(left = self.bin_edges[0], right = self.bin_edges[-1])
+        self.primary_ax.set_yscale("log") if self.logy else None
+
         self.primary_ax.legend(loc = legend_loc[0], frameon = frame)
 
         if self.ratio_ax is not None:
-            # self.ratio_ax.set_xlim(left = self.bin_edges[0], right = self.bin_edges[-1])
             self.ratio_ax.legend(loc = legend_loc[1], frameon = frame)
 
         plt.draw()
@@ -345,7 +347,7 @@ class LinePlot(PlotBase):
         plt.savefig(plot_path+".pdf", bbox_inches = "tight")
         plt.savefig(plot_path+".png", bbox_inches = "tight")
 
-        plt.clf()
+        plt.close(self.figure)
 
 
                                    ######################################################
@@ -439,5 +441,5 @@ class Hist2D(PlotBase):
         plt.savefig(plot_path+".pdf", bbox_inches = "tight")
         plt.savefig(plot_path+".png", bbox_inches = "tight")
 
-        plt.clf()
+        plt.close(self.figure)
 
