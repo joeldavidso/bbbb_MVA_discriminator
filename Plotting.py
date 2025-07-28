@@ -69,6 +69,8 @@ def transport_distance_p_1(data_arr_sig,sig_weights,data_arr_bkg,bkg_weights,bin
 #############################################################
 #############################################################
 
+print("Running")
+
 # import config
 file = open("Config.yaml")
 config = yaml.load(file, Loader=yaml.FullLoader)

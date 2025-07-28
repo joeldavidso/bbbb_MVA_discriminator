@@ -7,7 +7,7 @@ from torch import nn
 from torch.utils.data import DataLoader,Dataset
 from torchvision import datasets
 from torchvision.transforms import ToTensor
-from Utils import Data, Network, train_loop, val_loop, plot_var, var_bins
+from Utils import Data, Network, train_loop, val_loop, plot_var, var_bins, plot_losses
 import yaml
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -152,6 +152,9 @@ if learning["scheduler"] == "Exponential":
 elif learning["scheduler"] == "Cosine":
 	scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max = learning["epochs"], eta_min = 0)
 
+train_losses = []
+val_losses = []
+
 # Loop over epochs to train and validate
 for e in range(learning["epochs"]):
 
@@ -159,11 +162,13 @@ for e in range(learning["epochs"]):
 	print("Epoch "+str(e+1)+" :")
 	print("----------------------------------")
 	print("Training:")
-	train_loop(train_dataloader, model, loss_function, optimizer,scheduler,e+1, int(learning["batch_size"]))
-	val_loss = val_loop(test_dataloader, model, loss_function, e+1)
+	train_losses.append(train_loop(train_dataloader, model, loss_function, optimizer,scheduler,e+1, int(learning["batch_size"])))
+	val_losses.append(val_loop(test_dataloader, model, loss_function, e+1))
+
+	plot_losses(train_losses,val_losses,e+1,"trained_networks/"+net_name+"/plots/")
 
 	# Saves network eopochs
-	torch.save(model, "trained_networks/"+net_name+"/CKPT_"+str(e)+"_VAL_LOSS_"+str(val_loss)+".pth")
+	torch.save(model, "trained_networks/"+net_name+"/CKPT_"+str(e)+"_VAL_LOSS_"+str(val_losses[e])+".pth")
 
 
 print("Training Done!")
