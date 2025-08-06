@@ -180,8 +180,8 @@ with open("Config.yaml") as file:
 		# Resample datasets to have equal number of events
 		N_events = len(dataset)
 		if N_events != target:
-			print("Resampling from "+str(len(dataset))+" events to "+str(target)+" events")
-			print("^^ Events are resampled "+str(round( - 1 + target/len(dataset),2))+" times !!!")
+			print("Resampling from "+str(N_events)+" events to "+str(target)+" events")
+			print("^^ Events are resampled "+str(round( - 1 + target/N_events,2))+" times !!!")
 			# dataset = np.random.choice(dataset, target)
 
 			if N_events < target:
