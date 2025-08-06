@@ -18,7 +18,6 @@ samples:
         - ["ntag", "==4"] 
         - ["X_hh","<1.6"]
         - ["dEta_hh","<1.5"]
-        # - ["pass_vbf_sel",""]
       smear: False
 
     bb_background:
@@ -34,11 +33,6 @@ samples:
         - ["ntag", "==2"] 
         - ["X_hh","<1.6"]
         - ["dEta_hh","<1.5"]
-        # - ["pass_vbf_sel",""]
-        # - ["m_h1",">85.4"]
-        # - ["m_h1","<175"]
-        # - ["m_h2",">80.6"]
-        # - ["m_h2","<165.1"]
       smear: False
 
     bbbb_background:
@@ -50,7 +44,6 @@ samples:
       save_name: "bbbb_bkg_run2"
       selections:
         - ["X_hh","<1.6"]
-        # - "None"
       smear: False
 
 variables:
@@ -67,18 +60,24 @@ variables:
 
 training:
 
-  add_name: "28/7/25"
+  add_name: "28.7.25"
 
-  signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
-  background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
+  # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
 
-  signal_name: "bbbb_sig"
-  background_name: "bb_data"
+  # signal_name: "bbbb_sig"
+  # background_name: "bb_data"
 
-  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
+
+  signal_name: "bb_data"
+  background_name: "bbbb_bkg"
+
+  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
   # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
 
-  # signal_name: "bb_data"
+  # signal_name: "bbbb_sig"
   # background_name: "bbbb_bkg"
 
   structure:
@@ -91,4 +90,4 @@ training:
     scheduler: "Cosine"
     batch_size: 128
     learning_rate: 3e-4
-    epochs: 50
+    epochs: 300

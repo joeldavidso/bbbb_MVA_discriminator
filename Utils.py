@@ -199,7 +199,7 @@ def plot_var(dataset, labels, test_train, var_name, plot_dir, bins, sig_name, bk
 
 	HistogramPlot = skplt.HistogramPlot(bins = bins, xlabel = var_name, ylabel = "Number of Events", ratio = True, plot_unc = True)
 
-	HistogramPlot.Add(data = dataset[labels == 1], label = sig_name, fill = "A0", refernece = True)
+	HistogramPlot.Add(data = dataset[labels == 1], label = sig_name, fill = "A0", reference = True)
 	HistogramPlot.Add(data = dataset[labels == 0], label = bkg_name, fill = "A0")
 
 	HistogramPlot.Plot(plot_dir+"/plots/"+test_train+"/"+var_name)

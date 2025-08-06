@@ -97,9 +97,7 @@ def prep_class(class_datasets, batch_size, n_batches, variables, selections, sme
 			temp_dataset = np.recarray(np.array(batch[variables[0]])[pass_arr].shape, dtype = datatype)
 
 			# Remove nan events
-
 			nan_bool_arr =[]
-
 			for i in range(len(variables)):
 				# Fills dataset with events
 				temp_dataset[variables[i]] = batch[variables[i]].to_numpy(zero_copy_only = False)[pass_arr]
@@ -111,7 +109,6 @@ def prep_class(class_datasets, batch_size, n_batches, variables, selections, sme
 
 
 			# If Smearing required then do it here and recalculate X_hh from smeard mh1 mh2 dists
-
 			if smear:
 				temp_dataset["m_h1"] = temp_dataset["m_h1"] + np.random.normal(0,1,temp_dataset["m_h1"].shape)
 				temp_dataset["m_h2"] = temp_dataset["m_h2"] + np.random.normal(0,1,temp_dataset["m_h2"].shape)
@@ -119,7 +116,6 @@ def prep_class(class_datasets, batch_size, n_batches, variables, selections, sme
 				temp_dataset["X_hh"] = calc_xhh(temp_dataset["m_h1"],temp_dataset["m_h2"])
 
 				temp_dataset = temp_dataset[temp_dataset["X_hh"] < 1.6]
-
 
 
 			if np.sum(nan_bool_arr) > 0:

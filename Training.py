@@ -109,8 +109,8 @@ for count, var in enumerate(variables):
 
 	bins = var_bins[var]
 
-	plot_var(train_data.vecs[:,count], train_data.labels.flatten(), "train", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
-	plot_var(test_data.vecs[:,count], test_data.labels.flatten(), "test", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
+	plot_var(np.array(train_data.vecs[:,count]), np.array(train_data.labels.flatten()), "train", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
+	plot_var(np.array(test_data.vecs[:,count]), np.array(test_data.labels.flatten()), "test", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
 
 
 # Converts datsets to datlaoaders for training

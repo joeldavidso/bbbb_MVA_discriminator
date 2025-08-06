@@ -94,7 +94,7 @@ print(ckpt_list[np.argmin(losses)])
 model = torch.load("trained_networks/"+net_name+"/"+ckpt_list[np.argmin(losses)], weights_only = False)
 
 # Initialize loss function
-loss_function = nn.BCELoss(reduction="none")
+loss_function = nn.BCELoss()
 ###################################################################
 
 test_rw_arr = []
@@ -162,8 +162,8 @@ bins  = skplt.get_bins(0,1,40)
 
 HistogramPlot = skplt.HistogramPlot(bins = bins, xlabel = "Output Score", ylabel = "Number of Events")
 
-HistogramPlot.add(data = outputs[labels.flatten() == 1], label = sig_name)
-HistogramPlot.add(data = outputs[labels.flatten() == 0], label = bkg_name)
+HistogramPlot.Add(data = outputs[labels.flatten() == 1], label = sig_name)
+HistogramPlot.Add(data = outputs[labels.flatten() == 0], label = bkg_name)
 
 HistogramPlot.Plot(plot_dir+"outputs")
 
@@ -183,9 +183,9 @@ HistogramPlot.Plot(plot_dir+"ratio")
 
 bins  = skplt.get_bins(-10,10,40)
 
-HistogramPlot = skplt.HistogramPlot(bins = bins, xlabel = "Discriminant Value", ylabel = "Number of Events", ratio = True, logy = False)
+HistogramPlot = skplt.HistogramPlot(bins = bins, xlabel = "$D_{"+sig_name+"}^{"+bkg_name+"}$", ylabel = "Number of Events", ratio = True, logy = False)
 
-HistogramPlot.Add(data = discs[labels.flatten() == 1], label = sig_name, refernece = True)
+HistogramPlot.Add(data = discs[labels.flatten() == 1], label = sig_name, reference = True)
 HistogramPlot.Add(data = discs[labels.flatten() == 0], label = bkg_name)
 
 HistogramPlot.Plot(plot_dir+"discs")
@@ -193,12 +193,13 @@ HistogramPlot.Plot(plot_dir+"discs")
 
 ## disc ratio plotting
 
-ratio_ratio = np.divide(np.histogram(discs[labels.flatten() == 1], bins = bins)[0],np.histogram(discs[labels.flatten() == 0], bins = bins)[0])
+
+ratio_ratio = np.divide(np.histogram(discs[labels.flatten() == 1], bins = bins[0])[0],np.histogram(discs[labels.flatten() == 0], bins = bins[0])[0])
 
 LinePlot = skplt.LinePlot(xs = bins[1], xlabel = "Discriminant Value", ylabel = "Ratio of Discriminant Values", logy = True, ratio = True)
 
-LinePlot.Add(ys = ratio_ratio, label = "Ratio of ("+sig_name+")/("+bkg_name+")", refernece = True)
-LinePlot.Add(ys = np.exp(bins[1]), label = "Ideal Ratio", drawstyle = "steps", drawstyle = "--", colour = "grey")
+LinePlot.Add(ys = np.exp(bins[1]), label = "Ideal Ratio", linestyle = "--", linecolour = "grey", marker_size = 0)
+LinePlot.Add(ys = ratio_ratio, label = "Ratio of ("+sig_name+")/("+bkg_name+")", reference = True)
 
 LinePlot.Plot(plot_dir+"discs_ratio")
 
@@ -206,7 +207,7 @@ LinePlot.Plot(plot_dir+"discs_ratio")
 
 LinePlot = skplt.LinePlot(xs = eff_space, xlabel = sig_name+" Efficiency", ylabel = bkg_name+" Rejection", logy = True)
 
-LinePlot.Add(ys = rejs)
+LinePlot.Add(ys = rejs, marker_size = 0)
 
 LinePlot.Plot(plot_dir+"ROC")
 

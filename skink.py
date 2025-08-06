@@ -46,7 +46,6 @@ class PlotBase:
         self.figure = fig
         self.primary_ax = ax
 
-        self.ratio = ratio
         self.density = density
 
         self.logy = logy
@@ -71,6 +70,7 @@ class PlotBase:
             ax_ratio = divider.append_axes("bottom", 1.2, pad = 0, sharex = ax)
 
             self.ratio_ax = ax_ratio
+            self.primary_ax.set_xlabel("")
 
             # Axes label and tick stuff and things
             ax_ratio.tick_params(labelleft = False, labelright = True)        
@@ -112,7 +112,7 @@ class PlotBase:
 class HistogramPlot(PlotBase):
     
 
-    def __init__(self, bins, xlabel = "X", ylabel = "Y", ratio = False, density = False, plot_unc = True, cpallet = "Pastel", sizex = 5, sizey = 5, logy = False):
+    def __init__(self, bins, xlabel = "X", ylabel = "Y", ratio = False, residual = False, density = False, plot_unc = True, cpallet = "Pastel", sizex = 5, sizey = 5, logy = False):
         
         # Initialize relevant callable values
         self.histograms = []
@@ -120,34 +120,56 @@ class HistogramPlot(PlotBase):
         self.bin_centres = bins[1]
         self.colours = C_Pallets[cpallet]
         self.plot_unc = plot_unc
+        self.residual = residual
+        self.ratio = ratio
 
-        super().__init__(xlabel, ylabel, ratio = ratio, density = density, sizex = 5, sizey = 5, logy = logy)
+        if ratio and residual:
+            raise("NOPE!")
+
+        super().__init__(xlabel, ylabel, ratio = (ratio or residual), density = density, sizex = 5, sizey = 5, logy = logy)
 
 
-    def Add(self, data, label = "Add Label !!!!!!!!!!", colour = None, uncs = None,
-                 fill = "90", shrink = None, linewidth = 1.5, linecolour = "black", 
-                 orientation = "vertical", refernece = False, ratiothis = True):
+    def Add(self, data, label = "Add Label !!!!!!!!!!", colour = None, uncs = None, residualthis = True,
+                 fill = "90", shrink = None, linewidth = 1.5, linecolour = "black", linestyle = "-",
+                 orientation = "vertical", reference = False, ratiothis = True, weights = None):
+
+        # Set weights to one if none given
+        weights = np.ones_like(data) if weights is None else weights
 
         # Force data to be in binned form
         if len(data) != len(self.bin_centres):
-            data = np.histogram(data, self.bin_edges, density = self.density)[0]
+            # Get n_entries for denstiy
+            n_entries = np.sum(np.logical_and(data > self.bin_edges[0],data < self.bin_edges[-1]))
+            # Get sum of squared weights for error bars
+            uncs = np.sqrt(np.histogram(data, weights = weights**2, bins = self.bin_edges)[0]) if uncs is None else uncs
+            # Density applied later
+            data = np.histogram(data, weights = weights, bins = self.bin_edges)[0]
 
+        else:
+            # Get n_entries for denstiy
+            n_entries = np.sum(data)
+
+        density_factors = 1/(n_entries*(self.bin_edges[1:] - self.bin_edges[:-1])) if self.density else np.array([1 for b in self.bin_centres])
+        
         # If no uncertatinty given then use sqrt(bin value)
-        uncs = uncs if uncs is not None else np.sqrt(data)                
+        # / by 1/sqrt(n_entries * bin_width) if density is True
+        uncs = density_factors * uncs 
 
         self.histograms.append({"data":  data,
                                 "label": label,
                                 "colour": colour,
                                 "uncs": uncs,
+                                "density_factors": density_factors,
                                 "fill": "ff" if fill == "full" else fill,
                                 "shrink": shrink,
                                 "linewidth": linewidth,
                                 "linecolour": linecolour,
+                                "linestyle": linestyle,
                                 "orientation": orientation,
-                                "reference": refernece,
-                                "ratio": ratiothis})
-
-
+                                "reference": reference,
+                                "ratio": ratiothis,
+                                "residual": residualthis})
+    
     def Plot_Unc(self, axis, hist):
 
         # Do errors for each bin rather than whole plot so that gaps can occur when shrink != None
@@ -169,14 +191,14 @@ class HistogramPlot(PlotBase):
             
             # Lower            
             axis.fill_between(x = [x1,x2],
-                              y1 = [hist["data"][bin_N] - hist["uncs"][bin_N], hist["data"][bin_N] - hist["uncs"][bin_N]],
-                              y2 = [hist["data"][bin_N], hist["data"][bin_N]],
+                              y1 = np.array([hist["data"][bin_N] - hist["uncs"][bin_N], hist["data"][bin_N] - hist["uncs"][bin_N]])*hist["density_factors"][bin_N],
+                              y2 = np.array([hist["data"][bin_N], hist["data"][bin_N]])*hist["density_factors"][bin_N],
                               color = hist["colour"], zorder = 1, step = "pre", edgecolor = None, alpha = alpha_unc)
 
             # Upper 
             axis.fill_between(x = [x1,x2],
-                              y1 = [hist["data"][bin_N], hist["data"][bin_N]],
-                              y2 = [hist["data"][bin_N] + hist["uncs"][bin_N], hist["data"][bin_N] + hist["uncs"][bin_N]],
+                              y1 = np.array([hist["data"][bin_N], hist["data"][bin_N]])*hist["density_factors"][bin_N],
+                              y2 = np.array([hist["data"][bin_N] + hist["uncs"][bin_N], hist["data"][bin_N] + hist["uncs"][bin_N]])*hist["density_factors"][bin_N],
                               color = hist["colour"], zorder = 1, step = "pre", edgecolor = None, alpha = min(alpha_unc + (1-alpha_unc)*(int(hist["fill"],16)/255), 1))
 
 
@@ -191,14 +213,40 @@ class HistogramPlot(PlotBase):
 
         self.ratio_ax.set_ylabel("Ratio wrt "+ref_hist["label"])
 
-        temp_hist = {"data":  hist["data"]/ref_hist["data"],
-                     "uncs": (hist["data"]/ref_hist["data"]) * np.sqrt((ref_hist["uncs"]/ref_hist["data"])**2 + (hist["uncs"]/hist["data"])**2),
+        temp_hist = {"data":  (hist["data"]*hist["density_factors"])/(ref_hist["data"]*ref_hist["density_factors"]),
+                     "uncs": ((hist["data"]*hist["density_factors"])/(ref_hist["data"]*ref_hist["density_factors"])) 
+                     *np.sqrt((ref_hist["uncs"]/ref_hist["data"])**2 + (hist["uncs"]/hist["data"])**2), # density factors cancel in square roots!
+                     "density_factors": [1 for b in self.bin_centres],
                      "shrink": None,
                      "fill": "00",
                      "colour": hist["colour"],
                      "label": hist["label"]}
 
         self.Plot_Unc(self.ratio_ax, temp_hist) if self.plot_unc else None
+
+        self.ratio_ax.plot(self.bin_centres, temp_hist["data"], color = hist["colour"], label = temp_hist["label"], drawstyle = "steps-mid")
+
+
+    def Plot_Residual(self, hist):
+        
+        ref_bool = [hists["reference"] for hists in self.histograms]
+
+        if np.sum(ref_bool) != 1:
+            raise("Wrong Number of Refernece Hist Specified !!!")
+
+        ref_hist = self.histograms[np.nonzero(ref_bool)[0][0]]
+
+        self.ratio_ax.set_ylabel("Residual wrt "+ref_hist["label"])
+
+        temp_hist = {"data":  ((hist["data"]*hist["density_factors"]) - (ref_hist["data"]*ref_hist["density_factors"]))
+                              /np.sqrt((ref_hist["density_factors"]*ref_hist["uncs"])**2 + (hist["density_factors"]*hist["uncs"])**2)
+                              ,
+                     "uncs": None,
+                     "density_factors": [1 for b in self.bin_centres],
+                     "shrink": None,
+                     "fill": "00",
+                     "colour": hist["colour"],
+                     "label": hist["label"]}
 
         self.ratio_ax.plot(self.bin_centres, temp_hist["data"], color = hist["colour"], label = temp_hist["label"], drawstyle = "steps-mid")
 
@@ -214,12 +262,16 @@ class HistogramPlot(PlotBase):
             self.Plot_Unc(self.primary_ax, hist) if self.plot_unc else None
 
             self.primary_ax.hist(self.bin_centres, self.bin_edges, weights = hist["data"], ec = hist["linecolour"],
-                                 fc = hist["colour"] + hist["fill"],
+                                 fc = hist["colour"] + hist["fill"], linestyle = hist["linestyle"],
                                  linewidth = hist["linewidth"], rwidth = hist["shrink"], orientation = hist["orientation"], label = hist["label"],
                                  density = self.density)
 
+
             # Ratio Plotting
             self.Plot_Ratio(hist) if self.ratio and hist["ratio"] else None
+
+            # Ratio Plotting
+            self.Plot_Residual(hist) if self.residual and hist["residual"] else None
 
         self.primary_ax.margins(x = 0, y = 0.1)
 
@@ -248,19 +300,24 @@ class HistogramPlot(PlotBase):
 
 class LinePlot(PlotBase):
     
-    def __init__(self, xs, xlabel = "X", ylabel = "Y", ratio = False, plot_unc = True, cpallet = "Pastel", sizex = 5, sizey = 5):
+    def __init__(self, xs, xlabel = "X", ylabel = "Y", ratio = False, residual = False, plot_unc = False, logy = False, cpallet = "Pastel", sizex = 5, sizey = 5):
         
         # Initialize relevant callable values
         self.lines = []
         self.xs = xs
         self.colours = C_Pallets[cpallet]
         self.plot_unc = plot_unc
+        self.residual = residual
+        self.ratio = ratio
 
-        super().__init__(xlabel, ylabel, ratio = ratio, density = False, sizex = 5, sizey = 5)
+        if ratio and residual:
+            raise("Can Only Plot Ratio or Residual Individually Not Together!!!!")
+
+        super().__init__(xlabel, ylabel, ratio = (ratio or residual), density = False, sizex = 5, sizey = 5, logy = logy)
 
     
-    def Add(self, ys, label = "Add Label !!!!!!!!!!", linecolour = None, uncs = None,
-            linestyle = "-", linewidth = 2, marker = ".", marker_size = 10, refernece = False, ratiothis = True):
+    def Add(self, ys, label = "Add Label !!!!!!!!!!", linecolour = None, uncs = None, residualthis = True,
+            linestyle = "-", linewidth = 2, marker = ".", marker_size = 10, reference = False, ratiothis = True):
 
         # Force data to be in binned form
         if len(ys) != len(self.xs):
@@ -278,8 +335,9 @@ class LinePlot(PlotBase):
                            "linestyle": linestyle,
                            "marker": marker,
                            "marker_size": marker_size,
-                           "reference": refernece,
-                           "ratio": ratiothis})
+                           "reference": reference,
+                           "ratio": ratiothis,
+                           "residual": residualthis})
 
 
     def Plot_Unc(self, axis, line):
@@ -311,6 +369,27 @@ class LinePlot(PlotBase):
         self.ratio_ax.plot(self.xs, temp_line["ys"], color = line["linecolour"], label = temp_line["label"])
 
 
+    def Plot_Residual(self,line):
+
+        ref_bool = [line["reference"] for line in self.lines]
+
+        if np.sum(ref_bool) != 1:
+            raise("Wrong Number of Refernece Lines Specified !!!")
+
+        ref_line = self.lines[np.nonzero(ref_bool)[0][0]]
+
+        self.ratio_ax.set_ylabel("Residual wrt "+ref_line["label"])
+
+        temp_line = {"ys":  line["ys"] - ref_line["ys"],
+                     "uncs": np.sqrt(ref_line["uncs"]**2 + line["uncs"]**2) if self.plot_unc else None,
+                     "label": line["label"],
+                     "linecolour": line["linecolour"]}
+
+        self.Plot_Unc(self.ratio_ax, temp_line) if self.plot_unc else None
+
+        self.ratio_ax.plot(self.xs, temp_line["ys"], color = line["linecolour"], label = temp_line["label"])
+
+
     def Plot(self, plot_path, legend_loc = ["upper right", "upper right"], frame = False, ymax = None, ymin = None):
 
         # Plot each line on primary axis
@@ -326,6 +405,9 @@ class LinePlot(PlotBase):
 
             # Ratio Plotting
             self.Plot_Ratio(line) if self.ratio and line["ratio"] else None
+
+            # Residual Plotting
+            self.Plot_Residual(line) if self.residual and line["residual"] else None
 
         self.primary_ax.margins(x = 0, y = 0.1)
 
