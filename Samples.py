@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import pandas as pd
 import pyarrow.dataset as pyd
 import torch
@@ -61,7 +62,7 @@ def calc_xhh(mh1s,mh2s):
 
 
 # Grabs events of specific class and adds them to the dataset
-def prep_class(class_datasets, batch_size, n_batches, variables, selections, smear):
+def prep_class(class_dataset, batch_size, target, variables, selections, smear):
 
 	# Create data array
 	datatype = create_dataset_datatype(variables)
@@ -75,78 +76,64 @@ def prep_class(class_datasets, batch_size, n_batches, variables, selections, sme
 
 	full_variables = list(dict.fromkeys(full_variables))
 
-	classes_dataset = []
+	out_dataset = []
 
 	# Run over Class datasets to get wanted variables from events
-	for dataset_number, class_dataset in enumerate(class_datasets):
+	for batch_number, batch in enumerate(class_dataset.to_batches(columns = full_variables, batch_size = batch_size)):
 
-		file_dataset = []
-
-		for batch_number, batch in enumerate(class_dataset.to_batches(columns = full_variables, batch_size = batch_size)):
-
-
-			# Event Selection via cuts
-			pass_arr = np.full(np.array(batch[variables[0]]).shape,True)
-			for cut in selections:
-				if cut == "None":
-					break
-				cut_string = "np.array(batch['"+cut[0]+"'])"+cut[1]
-				pass_arr = np.logical_and(pass_arr, eval(cut_string))
-
-
-			temp_dataset = np.recarray(np.array(batch[variables[0]])[pass_arr].shape, dtype = datatype)
-
-			# Remove nan events
-			nan_bool_arr =[]
-			for i in range(len(variables)):
-				# Fills dataset with events
-				temp_dataset[variables[i]] = batch[variables[i]].to_numpy(zero_copy_only = False)[pass_arr]
-
-				if i == 0:
-					nan_bool_arr = np.isnan(temp_dataset[variables[i]])
-				else:
-					nan_bool_arr = np.logical_or(nan_bool_arr, np.isnan(temp_dataset[variables[i]]))
-
-
-			# If Smearing required then do it here and recalculate X_hh from smeard mh1 mh2 dists
-			if smear:
-				temp_dataset["m_h1"] = temp_dataset["m_h1"] + np.random.normal(0,1,temp_dataset["m_h1"].shape)
-				temp_dataset["m_h2"] = temp_dataset["m_h2"] + np.random.normal(0,1,temp_dataset["m_h2"].shape)
-
-				temp_dataset["X_hh"] = calc_xhh(temp_dataset["m_h1"],temp_dataset["m_h2"])
-
-				temp_dataset = temp_dataset[temp_dataset["X_hh"] < 1.6]
-
-
-			if np.sum(nan_bool_arr) > 0:
-				print(np.sum(nan_bool_arr))
-				raise("NOOOOOOOOOOOO")
-
-			temp_dataset["label"] = np.zeros_like(temp_dataset[variables[0]])
-			temp_dataset["weight"] = np.ones_like(temp_dataset[variables[0]])
-
-			# Add temp dataset to event dataset
-			if batch_number == 0:
-				file_dataset = temp_dataset
-			else:
-				file_dataset = np.append(file_dataset, temp_dataset)
-
-			print(f"\r["+str(100*batch_number/n_batches)+"%]", end = "", flush = True)
-
-			if batch_number == n_batches:
+		# Event Selection via cuts
+		pass_arr = np.full(np.array(batch[variables[0]]).shape,True)
+		for cut in selections:
+			if cut == "None":
 				break
+			cut_string = "np.array(batch['"+cut[0]+"'])"+cut[1]
+			pass_arr = np.logical_and(pass_arr, eval(cut_string))
 
-		print("                                                  ")
+		temp_dataset = np.recarray(np.array(batch[variables[0]])[pass_arr].shape, dtype = datatype)
 
-		# Add file dataset to class dataset
-		if dataset_number == 0:
-			classes_dataset = file_dataset
+		# Remove nan events
+		nan_bool_arr =[]
+		for i in range(len(variables)):
+			# Fills dataset with events
+			temp_dataset[variables[i]] = batch[variables[i]].to_numpy(zero_copy_only = False)[pass_arr]
+
+			if i == 0:
+				nan_bool_arr = np.isnan(temp_dataset[variables[i]])
+			else:
+				nan_bool_arr = np.logical_or(nan_bool_arr, np.isnan(temp_dataset[variables[i]]))
+
+
+		# If Smearing required then do it here and recalculate X_hh from smeard mh1 mh2 dists
+		if smear:
+			temp_dataset["m_h1"] = temp_dataset["m_h1"] + np.random.normal(0,1,temp_dataset["m_h1"].shape)
+			temp_dataset["m_h2"] = temp_dataset["m_h2"] + np.random.normal(0,1,temp_dataset["m_h2"].shape)
+
+			temp_dataset["X_hh"] = calc_xhh(temp_dataset["m_h1"],temp_dataset["m_h2"])
+
+			temp_dataset = temp_dataset[temp_dataset["X_hh"] < 1.6]
+
+
+		if np.sum(nan_bool_arr) > 0:
+			print(np.sum(nan_bool_arr))
+			raise("NOOOOOOOOOOOO")
+
+		temp_dataset["label"] = np.zeros_like(temp_dataset[variables[0]])
+		temp_dataset["weight"] = np.ones_like(temp_dataset[variables[0]])
+
+		# Add temp dataset to event dataset
+		if batch_number == 0:
+			out_dataset = temp_dataset
 		else:
-			classes_dataset = np.append(classes_dataset, file_dataset)
+			out_dataset = np.append(out_dataset, temp_dataset)
 
-	return classes_dataset
+		print(f"\r["+str(round(100*len(out_dataset)/target,3))+"%]", end = "", flush = True)
 
+		if len(out_dataset) > target:
+			break
 
+	print("                                                  ", end = "\r")
+
+	return out_dataset
 
 #############################################################
 #############################################################
@@ -165,13 +152,11 @@ with open("Config.yaml") as file:
 	# Grabs info from config
 	classes_dict = config["samples"]["files"]
 	variables = config["variables"]
-	n_batches = config["samples"]["N_batches"]
-	batch_size = config["samples"]["batch_size"]
+	target = int(config["samples"]["Target_Events"])
+	batch_size = 1000
 
 	# Create data dict and datatype for use later
 	datatype = create_dataset_datatype(variables)
-
-	# print(classes_dict)
 
 	# Runs over each class and creates training and testing samples
 	for count, sample_class in enumerate(classes_dict):
@@ -181,25 +166,33 @@ with open("Config.yaml") as file:
 		print("-------------------------------")
 		print("Class: "+sample_class["save_name"])
 
-		# Grab datasets
-		datasets = [pyd.dataset(sample_class["directory"]+file) for file in sample_class["files"]]
+		# Grab files and turn to dataset
+		dataset = pyd.dataset([sample_class["directory"] + file for file in sample_class["files"]])
 
-		# Get Number of Events
-		N_events = sum(datasets[i].count_rows() for i in range(len(datasets)))
-		print("NEVENTS: "+str(N_events))
+		# get number of events in dataset
+		n_events = dataset.count_rows()
+		print("NEVENTS PRE-CUTS: "+str(n_events))
 
-		N_target = n_batches*batch_size
+		dataset = prep_class(dataset, batch_size, min(n_events,target), variables, sample_class["selections"], sample_class["smear"])
 
-		if N_target > N_events:
-			print("Resampling ratio of: "+str(np.round(N_target/N_events,2)))
-
-		dataset = prep_class(datasets, batch_size, n_batches, variables, sample_class["selections"], sample_class["smear"])
+		print("NEVENTS POST-CUTS: "+str(len(dataset)))
 
 		# Resample datasets to have equal number of events
 		N_events = len(dataset)
+		if N_events != target:
+			print("Resampling from "+str(len(dataset))+" events to "+str(target)+" events")
+			print("^^ Events are resampled "+str(round( - 1 + target/len(dataset),2))+" times !!!")
+			# dataset = np.random.choice(dataset, target)
 
-		if N_events < N_target*len(datasets):
-			dataset = np.random.choice(dataset, N_target*len(datasets))
+			if N_events < target:
+				tempdataset = dataset
+				for i in range(N_events % target):
+					tempdataset = np.append(tempdataset, dataset)
+				tempdataset = np.append(tempdataset, np.random.choice(dataset, target - N_events))
+				dataset = tempdataset
+
+			else:
+				dataset = dataset[:(target-N_events)]
 
 		np.random.shuffle(dataset)
 
@@ -218,4 +211,5 @@ with open("Config.yaml") as file:
 		test_file.create_dataset("Data", data = dataset[:ten_percent_cutoff])
 		test_file.close()
 
+	print("-------------------------------")
 	print("Samples Prepared For Training!!")
