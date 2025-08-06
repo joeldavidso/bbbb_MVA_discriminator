@@ -135,6 +135,26 @@ def prep_class(class_dataset, batch_size, target, variables, selections, smear):
 
 	return out_dataset
 
+def resample(dataset, target):
+
+	N_events = len(dataset)
+
+	print("Resampling from "+str(N_events)+" events to "+str(target)+" events")
+	print("^^ Events are resampled "+str(round( - 1 + target/N_events,2))+" times !!!")
+	# dataset = np.random.choice(dataset, target)
+
+	if N_events < target:
+		tempdataset = dataset
+		for i in range(N_events % target):
+			tempdataset = np.append(tempdataset, dataset)
+		tempdataset = np.append(tempdataset, np.random.choice(dataset, target - N_events))
+		dataset = tempdataset
+
+	else:
+		dataset = dataset[:(target-N_events)]
+
+	return dataset
+
 #############################################################
 #############################################################
 ######                                                 ######
@@ -174,42 +194,29 @@ with open("Config.yaml") as file:
 		print("NEVENTS PRE-CUTS: "+str(n_events))
 
 		dataset = prep_class(dataset, batch_size, min(n_events,target), variables, sample_class["selections"], sample_class["smear"])
-
-		print("NEVENTS POST-CUTS: "+str(len(dataset)))
-
-		# Resample datasets to have equal number of events
-		N_events = len(dataset)
-		if N_events != target:
-			print("Resampling from "+str(N_events)+" events to "+str(target)+" events")
-			print("^^ Events are resampled "+str(round( - 1 + target/N_events,2))+" times !!!")
-			# dataset = np.random.choice(dataset, target)
-
-			if N_events < target:
-				tempdataset = dataset
-				for i in range(N_events % target):
-					tempdataset = np.append(tempdataset, dataset)
-				tempdataset = np.append(tempdataset, np.random.choice(dataset, target - N_events))
-				dataset = tempdataset
-
-			else:
-				dataset = dataset[:(target-N_events)]
-
 		np.random.shuffle(dataset)
 
-		ten_percent_cutoff = int(0.1*(len(dataset)))
+		N_events = len(dataset)
+
+		print("NEVENTS POST-CUTS: "+str(N_events))
+
+		ten_percent_cutoff = int(0.1*N_events)
 
 		# Create File location for test and train files
 		if not os.path.exists("samples/"+sample_class["save_name"]):
 			os.mkdir("samples/"+sample_class["save_name"])
-
-		# h5 file createion
-		train_file = h5py.File("samples/"+sample_class["save_name"]+"/train.h5","w")
-		train_file.create_dataset("Data", data = dataset[ten_percent_cutoff:])
-		train_file.close()
-
+ 
 		test_file = h5py.File("samples/"+sample_class["save_name"]+"/test.h5","w")
 		test_file.create_dataset("Data", data = dataset[:ten_percent_cutoff])
 		test_file.close()
+
+		# Resample training dataset to have equal number of events
+		dataset = resample(dataset[ten_percent_cutoff:], int(0.9*target)) if N_events != target else dataset[ten_percent_cutoff:]
+
+		# h5 file createion
+		train_file = h5py.File("samples/"+sample_class["save_name"]+"/train.h5","w")
+		train_file.create_dataset("Data", data = dataset)
+		train_file.close()
 
 	print("-------------------------------")
 	print("Samples Prepared For Training!!")
