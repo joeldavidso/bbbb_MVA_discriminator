@@ -138,20 +138,11 @@ def prep_class(class_dataset, batch_size, target, variables, selections, smear):
 def resample(dataset, target):
 
 	N_events = len(dataset)
-
+	
 	print("Resampling from "+str(N_events)+" events to "+str(target)+" events")
 	print("^^ Events are resampled "+str(round( - 1 + target/N_events,2))+" times !!!")
-	# dataset = np.random.choice(dataset, target)
 
-	if N_events < target:
-		tempdataset = dataset
-		for i in range(N_events % target):
-			tempdataset = np.append(tempdataset, dataset)
-		tempdataset = np.append(tempdataset, np.random.choice(dataset, target - N_events))
-		dataset = tempdataset
-
-	else:
-		dataset = dataset[:(target-N_events)]
+	dataset = np.random.choice(dataset, target) if N_events < target else dataset[:(target-N_events)]
 
 	return dataset
 
