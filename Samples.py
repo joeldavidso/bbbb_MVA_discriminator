@@ -138,7 +138,7 @@ def prep_class(class_dataset, batch_size, target, variables, selections, smear):
 def resample(dataset, target):
 
 	N_events = len(dataset)
-	
+
 	print("Resampling from "+str(N_events)+" events to "+str(target)+" events")
 	print("^^ Events are resampled "+str(round( - 1 + target/N_events,2))+" times !!!")
 
