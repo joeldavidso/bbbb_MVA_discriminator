@@ -129,6 +129,11 @@ class HistogramPlot(PlotBase):
 
         density_factors = 1/(n_entries*(self.bin_edges[1:] - self.bin_edges[:-1])) if self.density else np.array([1 for b in self.bin_centres])
 
+        # TODO: 
+        # - Determine what exactly this should be (should this just be on the bin range (above) or the whole dataset (below)?)
+        n_entries = np.sum(weights)
+        density_factors = np.array([1/n_entries for b in self.bin_centres]) if self.density else np.array([1 for b in self.bin_centres])
+
         # If no uncertatinty given then use sqrt(bin value)
         # / by 1/sqrt(n_entries * bin_width) if density is True
         # uncs = density_factors * uncs 
@@ -218,8 +223,14 @@ class HistogramPlot(PlotBase):
 
         self.add_ax.set_ylabel("Residual wrt "+ref_hist["label"])
 
+        # denominator_unc = np.sqrt((ref_hist["density_factors"]*ref_hist["uncs"])**2 + (hist["density_factors"]*hist["uncs"])**2)
+        denominator_unc = ref_hist["uncs"]*ref_hist["density_factors"]
+        # denominator_unc = hist["uncs"]*hist["density_factors"]
+
+
+
         temp_hist = {"data":  ((hist["data"]*hist["density_factors"]) - (ref_hist["data"]*ref_hist["density_factors"]))
-                              / np.sqrt((ref_hist["density_factors"]*ref_hist["uncs"])**2 + (hist["density_factors"]*hist["uncs"])**2)
+                              / denominator_unc
                               ,
                      "uncs": None,
                      "density_factors": [1 for b in self.bin_centres],
@@ -396,6 +407,7 @@ class LinePlot(PlotBase):
 
         self.add_ax.margins(x = 0, y = 0.05) if self.ratio else None
         self.add_ax.set_ylim(bottom = max(0,self.add_ax.get_ylim()[0])) if self.ratio else None
+        self.add_ax.set_ylim(top = 2) if self.ratio else None
 
         self.primary_ax.set_yscale("log") if self.logy else None
 
