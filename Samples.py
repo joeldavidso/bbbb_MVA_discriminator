@@ -91,16 +91,16 @@ def prep_class(class_dataset, batch_size, target, variables, selections, smear):
 
 		temp_dataset = np.recarray(np.array(batch[variables[0]])[pass_arr].shape, dtype = datatype)
 
-		# Remove nan events
-		nan_bool_arr =[]
-		for i in range(len(variables)):
-			# Fills dataset with events
-			temp_dataset[variables[i]] = batch[variables[i]].to_numpy(zero_copy_only = False)[pass_arr]
+		# # Remove nan events
+		# nan_bool_arr =[]
+		# for i in range(len(variables)):
+		# 	# Fills dataset with events
+		# 	temp_dataset[variables[i]] = batch[variables[i]].to_numpy(zero_copy_only = False)[pass_arr]
 
-			if i == 0:
-				nan_bool_arr = np.isnan(temp_dataset[variables[i]])
-			else:
-				nan_bool_arr = np.logical_or(nan_bool_arr, np.isnan(temp_dataset[variables[i]]))
+		# 	if i == 0:
+		# 		nan_bool_arr = np.isnan(temp_dataset[variables[i]])
+		# 	else:
+		# 		nan_bool_arr = np.logical_or(nan_bool_arr, np.isnan(temp_dataset[variables[i]]))
 
 
 		# If Smearing required then do it here and recalculate X_hh from smeard mh1 mh2 dists
