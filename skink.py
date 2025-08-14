@@ -17,7 +17,6 @@ C_Pallets = {"Pastel": {"Orange" : "#E78AA1",
                       "Purple": "#670178"}
             }
 
-
                                    ######################################################
 ##############################################       Misc Plot Functions      ###########################################
                                    ######################################################
@@ -31,6 +30,38 @@ def get_bins(xmin, xmax, nbins):
     
     return [bin_edges,bin_centres]
 
+# Function for propogating uncertainties when performing opertations
+# Inputs in form of lists with 1st element values and second element the uncertainties
+def CalcNProp(operation, xs, ys):
+    # Available operations:
+    # - Additon/Subtraction
+    # - Multiplication/Division
+
+    zs = [0,0]
+
+    if operation == "+" or operation == "-":
+        if operation == "+":
+            zs[0] = xs[0] + ys[0]
+        elif operation == "-":
+            zs[0] = xs[0] - ys[0]
+
+        # Z = X + Y -> DZ = sqrt(DX^2 + DY^2)
+        zs[1] = np.sqrt(xs[1]**2 + xs[1]**2)
+
+
+    elif operation == "*" or operation == "/":
+        if operation == "*":
+            zs[0] = xs[0] * ys[0]
+        elif operation == "/":
+            zs[0] = xs[0] / ys[0]
+
+        # Z = X * Y -> DZ/Z = sqrt((DX/X)^2 + (DY/Y)^2)
+        zs[1] = zs[0]*np.sqrt((xs[1]/xs[0])**2 + (ys[1]/ys[0])**2)
+
+    else:
+        raise("Unkown Operation!!!!")
+
+    return zs
 
                                    ######################################################
 ##############################################         Plot Base Class        ###########################################
@@ -95,7 +126,6 @@ class PlotBase:
 
 
 class HistogramPlot(PlotBase):
-    
 
     def __init__(self, bins, xlabel = "X", ylabel = "Y", ratio = False, residual = False, density = False,
                  plot_unc = True, cpallet = "Pastel", sizex = 5, sizey = 5, logy = False):
@@ -109,13 +139,22 @@ class HistogramPlot(PlotBase):
         self.residual = residual
         self.ratio = ratio
 
+
         if ratio and residual:
             raise("Can only plot one of ratio or residual, not both !!!")
 
         super().__init__(xlabel, ylabel, add_ax = (ratio or residual), density = density, sizex = 5, sizey = 5, logy = logy)
 
+        if residual:
+            
+            brazil_alpha = 0.3
+
+            self.add_ax.fill_between(x=[self.bin_edges[0],self.bin_edges[-1]], y1=[1,1],y2=[-1,-1], color = "yellow", alpha = brazil_alpha,edgecolor = None)
+            self.add_ax.fill_between(x=[self.bin_edges[0],self.bin_edges[-1]], y1=[2,2],y2=[1,1], color = "green", alpha = brazil_alpha,edgecolor=None)
+            self.add_ax.fill_between(x=[self.bin_edges[0],self.bin_edges[-1]], y1=[-1,-1],y2=[-2,-2], color = "green", alpha = brazil_alpha,edgecolor=None)
+
     def Add(self, data, label = "Add Label !!!!!!!!!!", colour = None, uncs = None, drawstyle = "bar",
-                 fill = "70", shrink = None, linewidth = 1.5, linecolour = "black", linestyle = "-",
+                 fill = "00", shrink = None, linewidth = 2, linecolour = "black", linestyle = "-",
                  orientation = "vertical", reference = False, addthis = True, weights = None):
 
         # Set weights to one if None given
@@ -131,19 +170,21 @@ class HistogramPlot(PlotBase):
 
         # TODO: 
         # - Determine what exactly this should be (should this just be on the bin range (above) or the whole dataset (below)?)
-        n_entries = np.sum(weights)
-        density_factors = np.array([1/n_entries for b in self.bin_centres]) if self.density else np.array([1 for b in self.bin_centres])
+        n_entries_2 = np.sum(weights)
+        density_factors_2 = 1/(n_entries_2*(self.bin_edges[1:] - self.bin_edges[:-1])) if self.density else np.array([1 for b in self.bin_centres])
+        # density_factors_2 = np.array([1/n_entries_2 for b in self.bin_centres]) if self.density else np.array([1 for b in self.bin_centres])
+
+
 
         # If no uncertatinty given then use sqrt(bin value)
         # / by 1/sqrt(n_entries * bin_width) if density is True
         # uncs = density_factors * uncs 
 
-
         self.histograms.append({"data":  data,
                                 "label": label,
                                 "colour": colour,
                                 "uncs": uncs,
-                                "density_factors": density_factors,
+                                "density_factors": density_factors_2,
                                 "fill": "ff" if fill == "full" else fill,
                                 "shrink": shrink,
                                 "linewidth": linewidth,
@@ -153,7 +194,7 @@ class HistogramPlot(PlotBase):
                                 "reference": reference,
                                 "add": addthis,
                                 "drawstyle": drawstyle})
-    
+
     def Plot_Unc(self, axis, hist):
 
         # Do errors for each bin rather than whole plot so that gaps can occur when shrink != None
@@ -198,9 +239,11 @@ class HistogramPlot(PlotBase):
 
         self.add_ax.set_ylabel("Ratio wrt "+ref_hist["label"])
 
-        temp_hist = {"data":  (hist["data"]*hist["density_factors"])/(ref_hist["data"]*ref_hist["density_factors"]),
-                     "uncs": ((hist["data"]*hist["density_factors"])/(ref_hist["data"]*ref_hist["density_factors"])) 
-                     *np.sqrt((ref_hist["uncs"]/ref_hist["data"])**2 + (hist["uncs"]/hist["data"])**2), # density factors cancel in square roots!
+        ratio_calcs = CalcNProp("/", [hist["data"]*hist["density_factors"], hist["uncs"]*hist["density_factors"]],
+                                     [ref_hist["data"]*ref_hist["density_factors"],ref_hist["uncs"]*ref_hist["density_factors"]])
+
+        temp_hist = {"data": ratio_calcs[0],
+                     "uncs": ratio_calcs[1],
                      "density_factors": [1 for b in self.bin_centres],
                      "shrink": None,
                      "fill": "00",
@@ -223,15 +266,12 @@ class HistogramPlot(PlotBase):
 
         self.add_ax.set_ylabel("Residual wrt "+ref_hist["label"])
 
-        # denominator_unc = np.sqrt((ref_hist["density_factors"]*ref_hist["uncs"])**2 + (hist["density_factors"]*hist["uncs"])**2)
-        denominator_unc = ref_hist["uncs"]*ref_hist["density_factors"]
-        # denominator_unc = hist["uncs"]*hist["density_factors"]
+
+        division_calc = CalcNProp("/", [hist["data"]*hist["density_factors"], hist["uncs"]*hist["density_factors"]],
+                                       [ref_hist["data"]*ref_hist["density_factors"], ref_hist["uncs"]*ref_hist["density_factors"]])
 
 
-
-        temp_hist = {"data":  ((hist["data"]*hist["density_factors"]) - (ref_hist["data"]*ref_hist["density_factors"]))
-                              / denominator_unc
-                              ,
+        temp_hist = {"data":  (division_calc[0]-1)/division_calc[1],
                      "uncs": None,
                      "density_factors": [1 for b in self.bin_centres],
                      "shrink": None,
@@ -252,10 +292,13 @@ class HistogramPlot(PlotBase):
             # Uncertainty Plotting
             self.Plot_Unc(self.primary_ax, hist) if self.plot_unc else None
 
-            self.primary_ax.hist(self.bin_centres, self.bin_edges, weights = hist["data"], ec = hist["linecolour"],
-                                 fc = hist["colour"] + hist["fill"], linestyle = hist["linestyle"],
-                                 linewidth = hist["linewidth"], rwidth = hist["shrink"], orientation = hist["orientation"], label = hist["label"],
-                                 density = self.density, histtype = hist["drawstyle"])
+            # self.primary_ax.hist(self.bin_centres, self.bin_edges, weights = hist["data"]*hist["density_factors"] if self.density else hist["data"], ec = hist["colour"],
+            #                      fc = hist["colour"] + hist["fill"], linestyle = hist["linestyle"],
+            #                      linewidth = hist["linewidth"], rwidth = hist["shrink"], orientation = hist["orientation"], label = hist["label"],
+            #                      density = False, histtype = hist["drawstyle"])
+
+            self.primary_ax.plot(self.bin_centres, hist["data"]*hist["density_factors"], color = hist["colour"], linewidth = hist["linewidth"],
+                                 label = hist["label"], drawstyle = "steps-mid")
 
 
             # Ratio Plotting
@@ -265,6 +308,7 @@ class HistogramPlot(PlotBase):
             self.Plot_Residual(hist) if self.residual and hist["add"] else None
 
         self.primary_ax.margins(x = 0, y = 0.1)
+        self.primary_ax.set_ylim(bottom=0)
 
         self.add_ax.margins(x = 0, y = 0.05) if self.ratio else None
         self.add_ax.set_ylim(bottom = max(0,self.add_ax.get_ylim()[0])) if self.ratio else None
@@ -407,7 +451,7 @@ class LinePlot(PlotBase):
 
         self.add_ax.margins(x = 0, y = 0.05) if self.ratio else None
         self.add_ax.set_ylim(bottom = max(0,self.add_ax.get_ylim()[0])) if self.ratio else None
-        self.add_ax.set_ylim(top = 2) if self.ratio else None
+        self.add_ax.set_ylim(top = 1.5) if self.ratio else None
 
         self.primary_ax.set_yscale("log") if self.logy else None
 

@@ -9,7 +9,7 @@ import os
 
 
 
-# Returns the dataset tha is used to store events for h5 saving later on
+# Returns the dataset that is used to store events for h5 saving later on
 # the dataset is created from a data dictionary of all input variables
 def create_dataset_datatype(variables):
 
@@ -91,16 +91,16 @@ def prep_class(class_dataset, batch_size, target, variables, selections, smear):
 
 		temp_dataset = np.recarray(np.array(batch[variables[0]])[pass_arr].shape, dtype = datatype)
 
-		# # Remove nan events
-		# nan_bool_arr =[]
-		# for i in range(len(variables)):
-		# 	# Fills dataset with events
-		# 	temp_dataset[variables[i]] = batch[variables[i]].to_numpy(zero_copy_only = False)[pass_arr]
+		# Remove nan events
+		nan_bool_arr =[]
+		for i in range(len(variables)):
+			# Fills dataset with events
+			temp_dataset[variables[i]] = batch[variables[i]].to_numpy(zero_copy_only = False)[pass_arr]
 
-		# 	if i == 0:
-		# 		nan_bool_arr = np.isnan(temp_dataset[variables[i]])
-		# 	else:
-		# 		nan_bool_arr = np.logical_or(nan_bool_arr, np.isnan(temp_dataset[variables[i]]))
+			if i == 0:
+				nan_bool_arr = np.isnan(temp_dataset[variables[i]])
+			else:
+				nan_bool_arr = np.logical_or(nan_bool_arr, np.isnan(temp_dataset[variables[i]]))
 
 
 		# If Smearing required then do it here and recalculate X_hh from smeard mh1 mh2 dists
@@ -196,7 +196,8 @@ with open("Config.yaml") as file:
 		# Create File location for test and train files
 		if not os.path.exists("samples/"+sample_class["save_name"]):
 			os.mkdir("samples/"+sample_class["save_name"])
- 
+
+		# Create and save test file (Used for plotting only)
 		test_file = h5py.File("samples/"+sample_class["save_name"]+"/test.h5","w")
 		test_file.create_dataset("Data", data = dataset[:ten_percent_cutoff])
 		test_file.close()
@@ -204,9 +205,16 @@ with open("Config.yaml") as file:
 		# Resample training dataset to have equal number of events
 		dataset = resample(dataset[ten_percent_cutoff:], int(0.9*target)) if N_events != target else dataset[ten_percent_cutoff:]
 
+		# 0.125 used so that train|val|test have 8:1:1 unique events each
+		ten_percent_cutoff = int(0.125*len(dataset))
+
+		# create and save the validation file (Used for validation in trainin only)
+		validation_file = h5py.File("samples/"+sample_class["save_name"]+"/val.h5","w")
+		validation_file.create_dataset("Data", data = dataset[:ten_percent_cutoff])
+
 		# h5 file createion
 		train_file = h5py.File("samples/"+sample_class["save_name"]+"/train.h5","w")
-		train_file.create_dataset("Data", data = dataset)
+		train_file.create_dataset("Data", data = dataset[ten_percent_cutoff:])
 		train_file.close()
 
 	print("-------------------------------")

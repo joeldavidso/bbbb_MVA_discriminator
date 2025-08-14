@@ -206,7 +206,7 @@ def plot_var(dataset, labels, test_train, var_name, plot_dir, bins, sig_name, bk
 
 def plot_losses(train_losses, val_losses, epochs, plot_dir):
 
-	LinePlot = skplt.LinePlot(xs = [e for e in range(epochs)], xlabel = "Epoch", ylabel = "Loss", ratio = False, plot_unc = False)
+	LinePlot = skplt.LinePlot(xs = [e for e in range(epochs)], xlabel = "Epoch", ylabel = "Loss", ratio = False, plot_unc = False, sizex = 12)
 
 	LinePlot.Add(ys = [round(float(loss),4) for loss in train_losses], label = "Avg. Train Loss")
 	LinePlot.Add(ys = [round(float(loss),4) for loss in val_losses], label = "Avg. Val Loss")

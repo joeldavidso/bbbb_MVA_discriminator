@@ -1,8 +1,7 @@
 
 samples:
 
-  N_batches: 1000
-  batch_size: 1000
+  Target_Events: 1_000_000
 
   files:
 
@@ -44,7 +43,7 @@ samples:
       save_name: "bbbb_bkg_run2"
       selections:
         - ["X_hh","<1.6"]
-      smear: False
+      smear: True
 
 variables:
   - X_hh
@@ -60,19 +59,19 @@ variables:
 
 training:
 
-  add_name: "28.7.25"
+  add_name: "13.08.25"
 
-  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
-  # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
+  background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
 
-  # signal_name: "bbbb_sig"
-  # background_name: "bb_data"
+  signal_name: "bbbb_sig"
+  background_name: "bb_data"
 
-  signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
-  background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
+  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
 
-  signal_name: "bb_data"
-  background_name: "bbbb_bkg"
+  # signal_name: "bb_data"
+  # background_name: "bbbb_bkg"
 
   # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
   # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
@@ -84,10 +83,11 @@ training:
     hidden_layers:
       - 128
       - 128
-
+      - 128
+      
   learning:
     optimizer: "Adam"
     scheduler: "Cosine"
-    batch_size: 128
+    batch_size: 256
     learning_rate: 3e-4
     epochs: 300

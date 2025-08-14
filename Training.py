@@ -44,60 +44,60 @@ if not os.path.exists("trained_networks/"+net_name):
 
 print("Net Name: "+ net_name)
 
-# Imports training and testing samples
+# Imports training and valing samples
 
-# Grab Signal test and train files
+# Grab Signal val and train files
 train_file = h5py.File(signal+"train.h5")
-test_file = h5py.File(signal+"test.h5")
+val_file = h5py.File(signal+"val.h5")
 
 # Converts Files to dataset
 
-train_tensors, test_tensors = [],[]
+train_tensors, val_tensors = [],[]
 
 for var in variables:
 	train_tensors.append(torch.from_numpy(train_file["Data"][var]))
-	test_tensors.append(torch.from_numpy(test_file["Data"][var]))
+	val_tensors.append(torch.from_numpy(val_file["Data"][var]))
 
 train_vecs = torch.stack((train_tensors),-1)
 train_weights = torch.from_numpy(train_file["Data"]["weight"]).unsqueeze(1)
 train_labels = torch.from_numpy(np.ones_like(train_file["Data"]["label"])).unsqueeze(1)
 
-test_vecs = torch.stack((test_tensors),-1)
-test_weights = torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)
-test_labels = torch.from_numpy(np.ones_like(test_file["Data"]["label"])).unsqueeze(1)
+val_vecs = torch.stack((val_tensors),-1)
+val_weights = torch.from_numpy(val_file["Data"]["weight"]).unsqueeze(1)
+val_labels = torch.from_numpy(np.ones_like(val_file["Data"]["label"])).unsqueeze(1)
 
 # Closes h5 files
-test_file.close()
+val_file.close()
 train_file.close()
 
 
 # Do it all again with background
-# Grab Signal test and train files
+# Grab Signal val and train files
 train_file = h5py.File(background+"train.h5")
-test_file = h5py.File(background+"test.h5")
+val_file = h5py.File(background+"val.h5")
 
 # Converts Files to dataset
 
-train_tensors, test_tensors = [],[]
+train_tensors, val_tensors = [],[]
 
 for var in variables:
 	train_tensors.append(torch.from_numpy(train_file["Data"][var]))
-	test_tensors.append(torch.from_numpy(test_file["Data"][var]))
+	val_tensors.append(torch.from_numpy(val_file["Data"][var]))
 
 train_vecs = torch.cat((train_vecs,torch.stack((train_tensors),-1)))
 train_weights = torch.cat((train_weights,torch.from_numpy(train_file["Data"]["weight"]).unsqueeze(1)))
 train_labels = torch.cat((train_labels,torch.from_numpy(np.zeros_like(train_file["Data"]["label"])).unsqueeze(1)))
 
-test_vecs = torch.cat((test_vecs,torch.stack((test_tensors),-1)))
-test_weights = torch.cat((test_weights,torch.from_numpy(test_file["Data"]["weight"]).unsqueeze(1)))
-test_labels = torch.cat((test_labels,torch.from_numpy(np.zeros_like(test_file["Data"]["label"])).unsqueeze(1)))
+val_vecs = torch.cat((val_vecs,torch.stack((val_tensors),-1)))
+val_weights = torch.cat((val_weights,torch.from_numpy(val_file["Data"]["weight"]).unsqueeze(1)))
+val_labels = torch.cat((val_labels,torch.from_numpy(np.zeros_like(val_file["Data"]["label"])).unsqueeze(1)))
 
 # Closes h5 files
-test_file.close()
+val_file.close()
 train_file.close()
 
 train_data = Data(train_vecs, train_weights, train_labels)
-test_data = Data(test_vecs, test_weights, test_labels)
+val_data = Data(val_vecs, val_weights, val_labels)
 
 print("No. Train: "+str(len(train_data)))
 
@@ -110,12 +110,12 @@ for count, var in enumerate(variables):
 	bins = var_bins[var]
 
 	plot_var(np.array(train_data.vecs[:,count]), np.array(train_data.labels.flatten()), "train", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
-	plot_var(np.array(test_data.vecs[:,count]), np.array(test_data.labels.flatten()), "test", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
+	plot_var(np.array(val_data.vecs[:,count]), np.array(val_data.labels.flatten()), "val", var, "trained_networks/"+net_name, bins, config["training"]["signal_name"], config["training"]["background_name"])
 
 
 # Converts datsets to datlaoaders for training
 train_dataloader = DataLoader(train_data, batch_size=learning["batch_size"], shuffle=True)
-test_dataloader = DataLoader(test_data, batch_size=learning["batch_size"], shuffle=True)
+val_dataloader = DataLoader(val_data, batch_size=learning["batch_size"], shuffle=True)
 
 # Outputs the structure of the data
 train_vecs, train_weights, train_labels = next(iter(train_dataloader))
@@ -163,7 +163,7 @@ for e in range(learning["epochs"]):
 	print("----------------------------------")
 	print("Training:")
 	train_losses.append(train_loop(train_dataloader, model, loss_function, optimizer,scheduler,e+1, int(learning["batch_size"])))
-	val_losses.append(val_loop(test_dataloader, model, loss_function, e+1))
+	val_losses.append(val_loop(val_dataloader, model, loss_function, e+1))
 
 	plot_losses(train_losses,val_losses,e+1,"trained_networks/"+net_name+"/plots/")
 
