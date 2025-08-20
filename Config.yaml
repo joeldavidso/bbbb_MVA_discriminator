@@ -35,7 +35,7 @@ samples:
       smear: False
 
     bbbb_background:
-      directory: "/storage/epp2/phubsg/bbbb_samples/bbbb_background_prediction/data161718-gn277_orth1_4b_sr_124_cr_x1.6_detaCut/resolved_blind_h1h2/"
+      directory: "/storage/epp2/phubsg/bbbb_samples/bbbb_background_prediction/20250723_resolved/data161718-gn277_4b_sr_124_117_cr_x1.6_ggf_resolved_resolved_blind_h1h2_run2/predictions/"
       files:
       - "df_pred__pipe_16_10xGP_mean.parquet"
       - "df_pred__pipe_17_10xGP_mean.parquet"
@@ -43,7 +43,8 @@ samples:
       save_name: "bbbb_bkg_run2"
       selections:
         - ["X_hh","<1.6"]
-      smear: True
+        - ["dEta_hh","<1.5"]
+      smear: False
 
 variables:
   - X_hh
@@ -59,7 +60,7 @@ variables:
 
 training:
 
-  add_name: "13.08.25"
+  add_name: "20.08.25"
 
   signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
   background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
@@ -89,5 +90,5 @@ training:
     optimizer: "Adam"
     scheduler: "Cosine"
     batch_size: 256
-    learning_rate: 3e-4
-    epochs: 300
+    learning_rate: 1e-3
+    epochs: 900

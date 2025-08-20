@@ -126,6 +126,7 @@ def prep_class(class_dataset, batch_size, target, variables, selections, smear):
 		else:
 			out_dataset = np.append(out_dataset, temp_dataset)
 
+		print(f"-", end = "", flush = True)
 		print(f"\r["+str(round(100*len(out_dataset)/target,3))+"%]", end = "", flush = True)
 
 		if len(out_dataset) > target:

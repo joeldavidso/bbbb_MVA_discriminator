@@ -46,14 +46,46 @@ class Data(Dataset):
 		label = self.labels[index]
 		return vec,weight,label
 
+
+# creates a linear layer that normalizes the inputs
+def normlayer(xs, n_input):
+
+  bias = torch.mean(xs, 0)
+  cov = torch.cov(xs.t())
+
+  l = nn.Linear(n_input , n_input)
+
+  eigvals , eigvec = torch.linalg.eigh(cov)
+
+  trans = \
+    torch.matmul \
+    ( eigvec
+    , torch.matmul \
+      ( torch.diag(1.0 / torch.sqrt(eigvals))
+      , eigvec.t()
+      )
+    )
+
+  assert int(np.isnan(bias).sum()) == 0
+  assert int(np.isnan(trans).sum()) == 0
+
+  l.weight = nn.Parameter(trans)
+  l.bias = nn.Parameter(torch.matmul(trans, -bias))
+
+  l.bias.requires_grad = False
+  l.weight.requires_grad = False
+
+  return l
+
+
 # Define the Network
 class Network(nn.Module):
 
-	def __init__(self, input_dim, output_dim, hidden_layers):
+	def __init__(self, input_dim, output_dim, hidden_layers, init_layer = False):
 
 		super(Network, self).__init__()
 
-		model_layers = []
+		model_layers = [init_layer] if init_layer is not None else []
 		in_dim = input_dim
 		for i, out_dim in enumerate(hidden_layers):
 			model_layers.append(nn.Linear(in_dim, out_dim))
@@ -64,15 +96,6 @@ class Network(nn.Module):
 		model_layers.append(nn.Sigmoid())
 
 		self.operation = nn.Sequential(*model_layers)
-
-	# 	self.apply(self._init_weights)
-
-	# # Initializes weights accoring to Normal dist with mean 0 and std 1
-	# def _init_weights(self, module):
-	# 	if isinstance(module, nn.Linear):
-	# 		module.weight.data.normal_(mean=0.0, std=1.0)
-	# 		if module.bias is not None:
-	# 			module.bias.data.zero_()
 
 	# Defines the forward pass
 	def forward(self, input):
@@ -114,7 +137,7 @@ def train_loop(dataloader, model, loss_fn, optimizer, scheduler, epoch, batch_si
 		if int(100*(batch-1)/num_batches) != int(100*(batch)/num_batches):
 			loss, current = loss.item(), batch*batch_size+len(label)
 			print(f"\rloss: "+str(loss)+"   ["+str(current)+"/"+str(size)+"]   ["+str(int(100*current/size))+"%]", end = "", flush = True)
-		scheduler.step()
+	scheduler.step()
 
 	return tot_loss/(batch+1)
 
@@ -206,9 +229,18 @@ def plot_var(dataset, labels, test_train, var_name, plot_dir, bins, sig_name, bk
 
 def plot_losses(train_losses, val_losses, epochs, plot_dir):
 
-	LinePlot = skplt.LinePlot(xs = [e for e in range(epochs)], xlabel = "Epoch", ylabel = "Loss", ratio = False, plot_unc = False, sizex = 12)
+	LinePlot = skplt.LinePlot(xs = [e for e in range(epochs)], xlabel = "Epoch", ylabel = "Loss", ratio = False, plot_unc = False)
 
-	LinePlot.Add(ys = [round(float(loss),4) for loss in train_losses], label = "Avg. Train Loss")
-	LinePlot.Add(ys = [round(float(loss),4) for loss in val_losses], label = "Avg. Val Loss")
+	LinePlot.Add(ys = [float(loss) for loss in train_losses], label = "Avg. Train Loss", marker_size = 0, linewidth = 1)
+	LinePlot.Add(ys = [float(loss) for loss in val_losses], label = "Avg. Val Loss", marker_size = 0, linewidth = 1)
 
 	LinePlot.Plot(plot_dir+"loss")
+
+def plot_lrs(lrs, epochs, plot_dir):
+
+
+	LinePlot = skplt.LinePlot(xs = [e for e in range(epochs)], xlabel = "Epoch", ylabel = "Learning Rate", ratio = False, plot_unc = False)
+
+	LinePlot.Add(ys = lrs, label = "Learning Rate", marker_size = 0, linewidth = 1)
+
+	LinePlot.Plot(plot_dir+"lr")

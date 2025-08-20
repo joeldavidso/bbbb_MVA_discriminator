@@ -7,7 +7,7 @@ from torch import nn
 from torch.utils.data import DataLoader,Dataset
 from torchvision import datasets
 from torchvision.transforms import ToTensor
-from Utils import Data, Network, train_loop, val_loop, plot_var, var_bins, plot_losses
+from Utils import Data, Network, train_loop, val_loop, plot_var, var_bins, plot_losses, plot_lrs, normlayer
 import yaml
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -41,6 +41,8 @@ net_name += "_"+str(learning["learning_rate"])+"_"+str(learning["epochs"])
 # Opens network directory for saving
 if not os.path.exists("trained_networks/"+net_name):
 	os.mkdir("trained_networks/"+net_name)
+if not os.path.exists("trained_networks/"+net_name+"/ckpts"):
+	os.mkdir("trained_networks/"+net_name+"/ckpts")
 
 print("Net Name: "+ net_name)
 
@@ -129,7 +131,8 @@ print("Training device set to "+device)
 # Create instance of Network and move to device
 model = Network(input_dim = len(variables),
 				output_dim = 1,
-				hidden_layers = structure
+				hidden_layers = structure,
+				init_layer = normlayer(train_data.vecs, len(variables))
 				).to(device)
 print("Model created with structure:")
 print(model)
@@ -154,10 +157,12 @@ elif learning["scheduler"] == "Cosine":
 
 train_losses = []
 val_losses = []
+lrs = []
 
 # Loop over epochs to train and validate
 for e in range(learning["epochs"]):
 
+	lrs.append(scheduler.get_last_lr()[-1])
 	print("__________________________________")
 	print("Epoch "+str(e+1)+" :")
 	print("----------------------------------")
@@ -166,9 +171,10 @@ for e in range(learning["epochs"]):
 	val_losses.append(val_loop(val_dataloader, model, loss_function, e+1))
 
 	plot_losses(train_losses,val_losses,e+1,"trained_networks/"+net_name+"/plots/")
+	plot_lrs(lrs,e+1,"trained_networks/"+net_name+"/plots/")
 
 	# Saves network eopochs
-	torch.save(model, "trained_networks/"+net_name+"/CKPT_"+str(e)+"_VAL_LOSS_"+str(val_losses[e])+".pth")
+	torch.save(model, "trained_networks/"+net_name+"/ckpts/CKPT_"+str(e)+"_VAL_LOSS_"+str(val_losses[e])+".pth")
 
 
 print("Training Done!")
