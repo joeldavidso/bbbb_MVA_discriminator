@@ -81,7 +81,7 @@ def normlayer(xs, n_input):
 # Define the Network
 class Network(nn.Module):
 
-	def __init__(self, input_dim, output_dim, hidden_layers, init_layer = False):
+	def __init__(self, input_dim, output_dim, hidden_layers, init_layer = None):
 
 		super(Network, self).__init__()
 
