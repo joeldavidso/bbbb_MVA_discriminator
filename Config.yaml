@@ -60,13 +60,19 @@ variables:
 
 training:
 
-  add_name: "20.08.25"
+  add_name: "ADDNAME"
 
-  signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
-  background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  Signal_file: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
+  Data_file: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+  Background_file: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
 
-  signal_name: "bbbb_sig"
-  background_name: "bb_data"
+  # add_name: "20.08.25"
+
+  # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_sig_1p0_run2/"
+  # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
+
+  # signal_name: "bbbb_sig"
+  # background_name: "bb_data"
 
   # signal: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bb_bkg_run2/"
   # background: "/home/epp/phubsg/Postgrad/HH_BBBB/MVA_dicriminant/samples/bbbb_bkg_run2/"
@@ -84,11 +90,10 @@ training:
     hidden_layers:
       - 128
       - 128
-      - 128
-      
+
   learning:
     optimizer: "Adam"
     scheduler: "Cosine"
     batch_size: 256
     learning_rate: 1e-3
-    epochs: 900
+    epochs: 400

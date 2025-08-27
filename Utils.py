@@ -48,40 +48,40 @@ class Data(Dataset):
 
 
 # creates a linear layer that normalizes the inputs
-def normlayer(xs, n_input):
+def normlayer(xs):
 
-  bias = torch.mean(xs, 0)
-  cov = torch.cov(xs.t())
+	bias = torch.mean(xs, 0)
+	cov = torch.cov(xs.t())
 
-  l = nn.Linear(n_input , n_input)
+	n_input = xs.size()[1]
 
-  eigvals , eigvec = torch.linalg.eigh(cov)
+	l = nn.Linear(n_input , n_input)
 
-  trans = \
-    torch.matmul \
-    ( eigvec
-    , torch.matmul \
-      ( torch.diag(1.0 / torch.sqrt(eigvals))
-      , eigvec.t()
+	eigvals , eigvec = torch.linalg.eigh(cov)
+
+	trans = \
+        torch.matmul \
+        (eigvec, torch.matmul \
+        (torch.diag(1.0 / torch.sqrt(eigvals)) , eigvec.t()
       )
     )
 
-  assert int(np.isnan(bias).sum()) == 0
-  assert int(np.isnan(trans).sum()) == 0
+	assert int(np.isnan(bias).sum()) == 0
+	assert int(np.isnan(trans).sum()) == 0
 
-  l.weight = nn.Parameter(trans)
-  l.bias = nn.Parameter(torch.matmul(trans, -bias))
+	l.weight = nn.Parameter(trans)
+	l.bias = nn.Parameter(torch.matmul(trans, -bias))
 
-  l.bias.requires_grad = False
-  l.weight.requires_grad = False
+	l.bias.requires_grad = False
+	l.weight.requires_grad = False
 
-  return l
+	return l
 
 
 # Define the Network
 class Network(nn.Module):
 
-	def __init__(self, input_dim, output_dim, hidden_layers, init_layer = False):
+	def __init__(self, input_dim, output_dim, hidden_layers, init_layer = None):
 
 		super(Network, self).__init__()
 
